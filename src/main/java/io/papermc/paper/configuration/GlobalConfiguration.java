@@ -305,4 +305,32 @@ public class GlobalConfiguration extends ConfigurationPart {
         public boolean disableChorusPlantUpdates = false;
         public boolean disableMushroomBlockUpdates = false;
     }
+
+    // Folia start - threaded regions
+    public ChunkSystem chunkSystem;
+
+    public class ChunkSystem extends ConfigurationPart {
+
+        public int ioThreads = -1;
+        public int workerThreads = -1;
+        public String genParallelism = "default";
+
+        @PostProcess
+        private void postProcess() {
+            ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler.init(this);
+        }
+    }
+
+    public ThreadedRegions threadedRegions;
+    public class ThreadedRegions extends ConfigurationPart {
+
+        public int threads = -1;
+        public int gridExponent = 2;
+
+        @PostProcess
+        public void postProcess() {
+            io.papermc.paper.threadedregions.TickRegions.init(this);
+        }
+    }
+    // Folia end - threaded regions
 }

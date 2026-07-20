@@ -11,15 +11,7 @@ public final class WorldUtil {
         return world.getMaxSection() - 1; // getMaxSection() is exclusive
     }
 
-    public static int getMaxSection(final Level world) {
-        return world.getMaxSection() - 1; // getMaxSection() is exclusive
-    }
-
     public static int getMinSection(final LevelHeightAccessor world) {
-        return world.getMinSection();
-    }
-
-    public static int getMinSection(final Level world) {
         return world.getMinSection();
     }
 
@@ -53,7 +45,7 @@ public final class WorldUtil {
         if (world == null) {
             return "null world";
         }
-        return world.dimension().toString();
+        return world.getWorld().getName(); // Paper
     }
 
     private WorldUtil() {

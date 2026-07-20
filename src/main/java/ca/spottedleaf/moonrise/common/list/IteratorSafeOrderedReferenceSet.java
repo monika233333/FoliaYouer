@@ -214,11 +214,11 @@ public final class IteratorSafeOrderedReferenceSet<E> {
         return this.indexMap.size();
     }
 
-    public Iterator<E> iterator() {
+    public IteratorSafeOrderedReferenceSet.Iterator<E> iterator() {
         return this.iterator(0);
     }
 
-    public Iterator<E> iterator(final int flags) {
+    public IteratorSafeOrderedReferenceSet.Iterator<E> iterator(final int flags) {
         ++this.iteratorCount;
         return new BaseIterator<>(this, true, (flags & ITERATOR_FLAG_SEE_ADDITIONS) != 0 ? Integer.MAX_VALUE : this.listSize);
     }
@@ -236,7 +236,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
 
     }
 
-    private static final class BaseIterator<E> implements Iterator<E> {
+    private static final class BaseIterator<E> implements IteratorSafeOrderedReferenceSet.Iterator<E> {
 
         private final IteratorSafeOrderedReferenceSet<E> set;
         private final boolean canFinish;
