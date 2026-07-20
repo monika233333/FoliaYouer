@@ -2849,6 +2849,14 @@ public final class Bukkit {
         return server.isOwnedByCurrentRegion(entity);
     }
     // Paper end - Folia region threading API
+    // Folia start - region threading API
+    /**
+     * Returns whether the current thread is ticking the global region.
+     */
+    public static boolean isGlobalTickThread() {
+        return server.isGlobalTickThread();
+    }
+    // Folia end - region threading API
 
     /**
      * Reload the Command Aliases in commands.yml

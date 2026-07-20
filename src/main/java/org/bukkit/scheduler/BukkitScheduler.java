@@ -7,6 +7,15 @@ import java.util.function.Consumer;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+// Folia start - add new schedulers
+/**
+ * @deprecated Use one of {@link io.papermc.paper.threadedregions.scheduler.RegionScheduler},
+ *                        {@link io.papermc.paper.threadedregions.scheduler.AsyncScheduler},
+ *                        {@link io.papermc.paper.threadedregions.scheduler.EntityScheduler},
+ *                        or {@link io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler}
+ */
+// Folia end - add new schedulers
+@Deprecated
 public interface BukkitScheduler {
 
     /**

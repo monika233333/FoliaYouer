@@ -395,6 +395,12 @@ public final class CraftServer implements Server {
         return ca.spottedleaf.moonrise.common.util.TickThread.isTickThreadFor(((CraftEntity) entity).getHandleRaw());
     }
     // Paper end - Folia reagion threading API
+    // Folia start - region threading API
+    @Override
+    public boolean isGlobalTickThread() {
+        return ca.spottedleaf.moonrise.common.util.TickThread.isTickThread();
+    }
+    // Folia end - region threading API
 
     static {
         ConfigurationSerialization.registerClass(CraftOfflinePlayer.class);

@@ -561,9 +561,9 @@ public final class SimplePluginManager implements PluginManager {
             }
 
             try {
-                server.getScheduler().cancelTasks(plugin);
+                server.getAsyncScheduler().cancelTasks(plugin); // Folia - new schedulers
             } catch (Throwable ex) {
-                handlePluginException("Error occurred (in the plugin loader) while cancelling tasks for "
+                handlePluginException("Error occurred (in the plugin loader) while cancelling async tasks for " // Folia - new schedulers
                         + plugin.getDescription().getFullName() + " (Is it up to date?)", ex, plugin); // Paper
             }
 

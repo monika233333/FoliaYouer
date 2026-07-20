@@ -2502,6 +2502,12 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
      */
     boolean isOwnedByCurrentRegion(@NotNull Entity entity);
     // Paper end - Folia region threading API
+    // Folia start - region threading API
+    /**
+     * Returns whether the current thread is ticking the global region.
+     */
+    public boolean isGlobalTickThread();
+    // Folia end - region threading API
 
     boolean reloadCommandAliases(); // Paper
 
