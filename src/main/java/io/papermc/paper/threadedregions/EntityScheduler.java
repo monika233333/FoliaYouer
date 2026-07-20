@@ -3,12 +3,13 @@ package io.papermc.paper.threadedregions;
 import ca.spottedleaf.concurrentutil.util.Validate;
 import ca.spottedleaf.moonrise.common.util.TickThread;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.minecraft.world.entity.Entity;
+import org.bukkit.craftbukkit.entity.CraftEntity;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import net.minecraft.world.entity.Entity;
-import org.bukkit.craftbukkit.entity.CraftEntity;
 
 /**
  * An entity can move between worlds with an arbitrary tick delay, be temporarily removed
@@ -49,6 +50,14 @@ public final class EntityScheduler {
         this.entity = Validate.notNull(entity);
     }
 
+    // Folia start - region threading
+    public boolean isRetired() {
+        synchronized (this.stateLock) {
+            return this.tickCount == RETIRED_TICK_COUNT;
+        }
+    }
+    // Folia end - region threading
+
     /**
      * Retires the scheduler, preventing new tasks from being scheduled and invoking the retired callback
      * on all currently scheduled tasks.
@@ -62,7 +71,7 @@ public final class EntityScheduler {
     public void retire() {
         synchronized (this.stateLock) {
             if (this.tickCount == RETIRED_TICK_COUNT) {
-                return;
+                throw new IllegalStateException("Already retired");
             }
             this.tickCount = RETIRED_TICK_COUNT;
         }
@@ -143,7 +152,7 @@ public final class EntityScheduler {
         final List<ScheduledTask> toRun;
         synchronized (this.stateLock) {
             if (this.tickCount == RETIRED_TICK_COUNT) {
-                return;
+                throw new IllegalStateException("Ticking retired scheduler");
             }
             ++this.tickCount;
             if (this.oneTimeDelayed.isEmpty()) {
