@@ -31,7 +31,9 @@ abstract class PaperPermissionManager implements PermissionManager {
     @Override
     @Nullable
     public Permission getPermission(@NotNull String name) {
+        synchronized (this) { // Folia - synchronized
         return this.permissions().get(name.toLowerCase(Locale.ENGLISH));
+        } // Folia - synchronized
     }
 
     @Override
@@ -51,12 +53,24 @@ abstract class PaperPermissionManager implements PermissionManager {
     private void addPermission(@NotNull Permission perm, boolean dirty) {
         String name = perm.getName().toLowerCase(Locale.ENGLISH);
 
+        Boolean recalc; // Folia - synchronized
+        synchronized (this) { // Folia - synchronized
         if (this.permissions().containsKey(name)) {
             throw new IllegalArgumentException("The permission " + name + " is already defined!");
         }
 
         this.permissions().put(name, perm);
-        this.calculatePermissionDefault(perm, dirty);
+        recalc = this.calculatePermissionDefault(perm, dirty);
+        } // Folia - synchronized
+        // Folia start - synchronize this class - we hold a lock now, prevent deadlock by moving this out
+        if (recalc != null) {
+            if (recalc.booleanValue()) {
+                this.dirtyPermissibles(true);
+            } else {
+                this.dirtyPermissibles(false);
+            }
+        }
+        // Folia end - synchronize this class - we hold a lock now, prevent deadlock by moving this out
     }
 
     @Override
@@ -79,42 +93,58 @@ abstract class PaperPermissionManager implements PermissionManager {
 
     @Override
     public void recalculatePermissionDefaults(@NotNull Permission perm) {
+        Boolean recalc = null; // Folia - synchronized
+        synchronized (this) { // Folia - synchronized
         // we need a null check here because some plugins for some unknown reason pass null into this?
         if (perm != null && this.permissions().containsKey(perm.getName().toLowerCase(Locale.ROOT))) {
             this.defaultPerms().get(true).remove(perm);
             this.defaultPerms().get(false).remove(perm);
 
-            this.calculatePermissionDefault(perm, true);
+            recalc = this.calculatePermissionDefault(perm, true); // Folia - synchronized
         }
+        } // Folia - synchronized
+        // Folia start - synchronize this class - we hold a lock now, prevent deadlock by moving this out
+        if (recalc != null) {
+            if (recalc.booleanValue()) {
+                this.dirtyPermissibles(true);
+            } else {
+                this.dirtyPermissibles(false);
+            }
+        }
+        // Folia end - synchronize this class - we hold a lock now, prevent deadlock by moving this out
     }
 
-    private void calculatePermissionDefault(@NotNull Permission perm, boolean dirty) {
+    private Boolean calculatePermissionDefault(@NotNull Permission perm, boolean dirty) { // Folia - synchronize this class
         if ((perm.getDefault() == PermissionDefault.OP) || (perm.getDefault() == PermissionDefault.TRUE)) {
             this.defaultPerms().get(true).add(perm);
             if (dirty) {
-                this.dirtyPermissibles(true);
+                return Boolean.TRUE; // Folia - synchronize this class - we hold a lock now, prevent deadlock by moving this out
             }
         }
         if ((perm.getDefault() == PermissionDefault.NOT_OP) || (perm.getDefault() == PermissionDefault.TRUE)) {
             this.defaultPerms().get(false).add(perm);
             if (dirty) {
-                this.dirtyPermissibles(false);
+                return Boolean.FALSE; // Folia - synchronize this class - we hold a lock now, prevent deadlock by moving this out
             }
         }
+        return null; // Folia - synchronize this class
     }
 
 
     @Override
     public void subscribeToPermission(@NotNull String permission, @NotNull Permissible permissible) {
+        synchronized (this) { // Folia - synchronized
         String name = permission.toLowerCase(Locale.ENGLISH);
         Map<Permissible, Boolean> map = this.permSubs().computeIfAbsent(name, k -> new WeakHashMap<>());
 
         map.put(permissible, true);
+        } // Folia - synchronized
     }
 
     @Override
     public void unsubscribeFromPermission(@NotNull String permission, @NotNull Permissible permissible) {
         String name = permission.toLowerCase(Locale.ENGLISH);
+        synchronized (this) { // Folia - synchronized
         Map<Permissible, Boolean> map = this.permSubs().get(name);
 
         if (map != null) {
@@ -124,11 +154,13 @@ abstract class PaperPermissionManager implements PermissionManager {
                 this.permSubs().remove(name);
             }
         }
+        } // Folia - synchronized
     }
 
     @Override
     @NotNull
     public Set<Permissible> getPermissionSubscriptions(@NotNull String permission) {
+        synchronized (this) { // Folia - synchronized
         String name = permission.toLowerCase(Locale.ENGLISH);
         Map<Permissible, Boolean> map = this.permSubs().get(name);
 
@@ -137,17 +169,21 @@ abstract class PaperPermissionManager implements PermissionManager {
         } else {
             return ImmutableSet.copyOf(map.keySet());
         }
+        } // Folia - synchronized
     }
 
     @Override
     public void subscribeToDefaultPerms(boolean op, @NotNull Permissible permissible) {
+        synchronized (this) { // Folia - synchronized
         Map<Permissible, Boolean> map = this.defSubs().computeIfAbsent(op, k -> new WeakHashMap<>());
 
         map.put(permissible, true);
+        } // Folia - synchronized
     }
 
     @Override
     public void unsubscribeFromDefaultPerms(boolean op, @NotNull Permissible permissible) {
+        synchronized (this) { // Folia - synchronized
         Map<Permissible, Boolean> map = this.defSubs().get(op);
 
         if (map != null) {
@@ -157,11 +193,13 @@ abstract class PaperPermissionManager implements PermissionManager {
                 this.defSubs().remove(op);
             }
         }
+        } // Folia - synchronized
     }
 
     @Override
     @NotNull
     public Set<Permissible> getDefaultPermSubscriptions(boolean op) {
+        synchronized (this) { // Folia - synchronized
         Map<Permissible, Boolean> map = this.defSubs().get(op);
 
         if (map == null) {
@@ -169,19 +207,24 @@ abstract class PaperPermissionManager implements PermissionManager {
         } else {
             return ImmutableSet.copyOf(map.keySet());
         }
+        } // Folia - synchronized
     }
 
     @Override
     @NotNull
     public Set<Permission> getPermissions() {
+        synchronized (this) { // Folia - synchronized
         return new HashSet<>(this.permissions().values());
+        } // Folia - synchronized
     }
 
     @Override
     public void clearPermissions() {
+        synchronized (this) { // Folia - synchronized
         this.permissions().clear();
         this.defaultPerms().get(true).clear();
         this.defaultPerms().get(false).clear();
+        } // Folia - synchronized
     }
 
 

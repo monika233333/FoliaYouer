@@ -45,6 +45,7 @@ public final class CraftScoreboard implements org.bukkit.scoreboard.Scoreboard {
     }
     @Override
     public CraftObjective registerNewObjective(String name, Criteria criteria, net.kyori.adventure.text.Component displayName, RenderType renderType) throws IllegalArgumentException {
+        if (true) throw new UnsupportedOperationException(); // Folia - not supported yet
         if (displayName == null) {
             displayName = net.kyori.adventure.text.Component.empty();
         }
@@ -204,6 +205,7 @@ public final class CraftScoreboard implements org.bukkit.scoreboard.Scoreboard {
 
     @Override
     public Team registerNewTeam(String name) {
+        if (true) throw new UnsupportedOperationException(); // Folia - not supported yet
         Preconditions.checkArgument(name != null, "Team name cannot be null");
         Preconditions.checkArgument(name.length() <= Short.MAX_VALUE, "Team name '%s' is longer than the limit of 32767 characters (%s)", name, name.length());
         Preconditions.checkArgument(this.board.getPlayerTeam(name) == null, "Team name '%s' is already in use", name);
@@ -231,6 +233,7 @@ public final class CraftScoreboard implements org.bukkit.scoreboard.Scoreboard {
 
     @Override
     public void clearSlot(DisplaySlot slot) {
+        if (true) throw new UnsupportedOperationException(); // Folia - not supported yet
         Preconditions.checkArgument(slot != null, "Slot cannot be null");
         this.board.setDisplayObjective(CraftScoreboardTranslations.fromBukkitSlot(slot), null);
     }

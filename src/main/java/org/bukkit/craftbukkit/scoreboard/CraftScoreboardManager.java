@@ -42,6 +42,7 @@ public final class CraftScoreboardManager implements ScoreboardManager {
 
     @Override
     public CraftScoreboard getNewScoreboard() {
+        if (true) throw new UnsupportedOperationException(); // Folia - not supported yet
         org.spigotmc.AsyncCatcher.catchOp("scoreboard creation"); // Spigot
         CraftScoreboard scoreboard = new CraftScoreboard(new ServerScoreboard(this.server));
         // Paper start
@@ -68,6 +69,7 @@ public final class CraftScoreboardManager implements ScoreboardManager {
 
     // CraftBukkit method
     public void setPlayerBoard(CraftPlayer player, org.bukkit.scoreboard.Scoreboard bukkitScoreboard) {
+        if (true) throw new UnsupportedOperationException(); // Folia - not supported yet
         Preconditions.checkArgument(bukkitScoreboard instanceof CraftScoreboard, "Cannot set player scoreboard to an unregistered Scoreboard");
 
         CraftScoreboard scoreboard = (CraftScoreboard) bukkitScoreboard;

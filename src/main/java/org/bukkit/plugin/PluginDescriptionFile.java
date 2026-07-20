@@ -260,6 +260,7 @@ public final class PluginDescriptionFile implements io.papermc.paper.plugin.conf
     private Set<PluginAwareness> awareness = ImmutableSet.of();
     private String apiVersion = null;
     private List<String> libraries = ImmutableList.of();
+    private boolean foliaSupported = false; // Folia - region threading
     // Paper start - plugin loader api
     private String paperPluginLoader;
     @org.jetbrains.annotations.ApiStatus.Internal @org.jetbrains.annotations.Nullable
@@ -1041,6 +1042,13 @@ public final class PluginDescriptionFile implements io.papermc.paper.plugin.conf
         return apiVersion;
     }
 
+    // Folia start - region threading
+    @Override
+    public boolean isFoliaSupported() {
+        return this.foliaSupported;
+    }
+    // Folia end - region threading
+
     /**
      * Gets the libraries this plugin requires. This is a preview feature.
      * <ul>
@@ -1227,6 +1235,16 @@ public final class PluginDescriptionFile implements io.papermc.paper.plugin.conf
             apiVersion = map.get("api-version").toString();
         }
 
+        // Folia start - region threading
+        if (map.get("folia-supported") != null) {
+            try {
+                foliaSupported = Boolean.parseBoolean(map.get("folia-supported").toString());
+            } catch (ClassCastException ex) {
+                throw new InvalidDescriptionException(ex, "folia-supported has wrong type");
+            }
+        }
+        // Folia end - region threading
+
         if (map.get("libraries") != null) {
             ImmutableList.Builder<String> contributorsBuilder = ImmutableList.<String>builder();
             try {
@@ -1331,6 +1349,12 @@ public final class PluginDescriptionFile implements io.papermc.paper.plugin.conf
         if (apiVersion != null) {
             map.put("api-version", apiVersion);
         }
+
+        // Folia start - region threading
+        if (foliaSupported) {
+            map.put("folia-supported", true);
+        }
+        // Folia end - region threading
 
         if (libraries != null) {
             map.put("libraries", libraries);

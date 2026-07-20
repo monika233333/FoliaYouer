@@ -1352,6 +1352,7 @@ public final class CraftServer implements Server {
 
     @Override
     public World createWorld(WorldCreator creator) {
+        if (true) throw new UnsupportedOperationException(); // Folia - not implemented properly yet
         //Preconditions.checkState(this.console.getAllLevels().iterator().hasNext(), "Cannot create additional worlds on STARTUP");
         Preconditions.checkArgument(creator != null, "WorldCreator cannot be null");
         Level2LevelStem.initPluginWorld.set(true); // Youer
@@ -1554,6 +1555,7 @@ public final class CraftServer implements Server {
 
     @Override
     public boolean unloadWorld(World world, boolean save) {
+        if (true) throw new UnsupportedOperationException(); // Folia - not implemented properly yet
         if (world == null) {
             return false;
         }

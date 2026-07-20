@@ -183,4 +183,15 @@ public interface PluginMeta {
      */
     @Nullable String getAPIVersion();
 
+    // Folia start - region threading
+    /**
+     * Checks if this plugin is explicitly marked as supporting Folia region threading.
+     *
+     * @return {@code true} if the plugin explicitly supports Folia
+     */
+    default boolean isFoliaSupported() {
+        return false;
+    }
+    // Folia end - region threading
+
 }
