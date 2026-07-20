@@ -1,0 +1,26 @@
+--- a/net/minecraft/world/entity/ai/attributes/DefaultAttributes.java
++++ b/net/minecraft/world/entity/ai/attributes/DefaultAttributes.java
+@@ -130,7 +_,7 @@
+         .put(EntityType.OCELOT, Ocelot.createAttributes().build())
+         .put(EntityType.PANDA, Panda.createAttributes().build())
+         .put(EntityType.PARROT, Parrot.createAttributes().build())
+-        .put(EntityType.PHANTOM, Monster.createMonsterAttributes().build())
++        .put(EntityType.PHANTOM, net.minecraft.world.entity.monster.Phantom.createAttributes().build()) // Purpur
+         .put(EntityType.PIG, Pig.createAttributes().build())
+         .put(EntityType.PIGLIN, Piglin.createAttributes().build())
+         .put(EntityType.PIGLIN_BRUTE, PiglinBrute.createAttributes().build())
+@@ -174,11 +_,12 @@
+         .build();
+ 
+     public static AttributeSupplier getSupplier(EntityType<? extends LivingEntity> p_22298_) {
+-        return SUPPLIERS.get(p_22298_);
++        AttributeSupplier supplier = net.neoforged.neoforge.common.CommonHooks.getAttributesView().get(p_22298_);
++        return supplier != null ? supplier : SUPPLIERS.get(p_22298_);
+     }
+ 
+     public static boolean hasSupplier(EntityType<?> p_22302_) {
+-        return SUPPLIERS.containsKey(p_22302_);
++        return SUPPLIERS.containsKey(p_22302_) || net.neoforged.neoforge.common.CommonHooks.getAttributesView().containsKey(p_22302_);
+     }
+ 
+     public static void validate() {

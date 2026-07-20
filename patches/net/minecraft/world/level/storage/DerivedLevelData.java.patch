@@ -1,0 +1,77 @@
+--- a/net/minecraft/world/level/storage/DerivedLevelData.java
++++ b/net/minecraft/world/level/storage/DerivedLevelData.java
+@@ -3,17 +_,24 @@
+ import java.util.UUID;
+ import net.minecraft.CrashReportCategory;
+ import net.minecraft.core.BlockPos;
++import net.minecraft.resources.ResourceKey;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.world.Difficulty;
+ import net.minecraft.world.level.GameRules;
+ import net.minecraft.world.level.GameType;
+ import net.minecraft.world.level.LevelHeightAccessor;
+ import net.minecraft.world.level.border.WorldBorder;
++import net.minecraft.world.level.dimension.LevelStem;
+ import net.minecraft.world.level.timers.TimerQueue;
+ 
+ public class DerivedLevelData implements ServerLevelData {
+     private final WorldData worldData;
+     public final ServerLevelData wrapped;
++    private ResourceKey<LevelStem> typeKey;
++
++    public void setTypeKey(ResourceKey<LevelStem> typeKey) {
++        this.typeKey = typeKey;
++    }
+ 
+     public DerivedLevelData(WorldData p_78079_, ServerLevelData p_78080_) {
+         this.worldData = p_78079_;
+@@ -42,7 +_,20 @@
+ 
+     @Override
+     public String getLevelName() {
+-        return this.worldData.getLevelName();
++        if (typeKey == null || typeKey == LevelStem.OVERWORLD) {
++            return this.wrapped.getLevelName();
++        } else {
++            String worldName = this.wrapped.getLevelName() + "/";
++            String suffix;
++            if (typeKey == LevelStem.END) {
++                suffix = "DIM1";
++            } else if (typeKey == LevelStem.NETHER) {
++                suffix = "DIM-1";
++            } else {
++                suffix = typeKey.location().getNamespace() + "/" + typeKey.location().getPath();
++            }
++            return worldName + suffix;
++        }
+     }
+ 
+     @Override
+@@ -190,5 +_,27 @@
+     public void fillCrashReportCategory(CrashReportCategory p_164852_, LevelHeightAccessor p_164853_) {
+         p_164852_.setDetail("Derived", true);
+         this.wrapped.fillCrashReportCategory(p_164852_, p_164853_);
++    }
++
++    // Neo: Variable day time code
++
++    @Override
++    public float getDayTimeFraction() {
++        return wrapped.getDayTimeFraction();
++    }
++
++    @Override
++    public float getDayTimePerTick() {
++        return wrapped.getDayTimePerTick();
++    }
++
++    @Override
++    public void setDayTimeFraction(float dayTimeFraction) {
++        wrapped.setDayTimeFraction(dayTimeFraction);
++    }
++
++    @Override
++    public void setDayTimePerTick(float dayTimePerTick) {
++        wrapped.setDayTimePerTick(dayTimePerTick);
+     }
+ }

@@ -1,0 +1,30 @@
+--- a/net/minecraft/world/entity/monster/piglin/AbstractPiglin.java
++++ b/net/minecraft/world/entity/monster/piglin/AbstractPiglin.java
+@@ -82,7 +_,7 @@
+             this.timeInOverworld = 0;
+         }
+ 
+-        if (this.timeInOverworld > 300) {
++        if (this.timeInOverworld > 300 && net.neoforged.neoforge.event.EventHooks.canLivingConvert(this, EntityType.ZOMBIFIED_PIGLIN, (timer) -> this.timeInOverworld = timer)) {
+             this.playConvertedSound();
+             this.finishConversion((ServerLevel)this.level());
+         }
+@@ -93,10 +_,17 @@
+     }
+ 
+     protected void finishConversion(ServerLevel p_34663_) {
++        this.transformReasonAndspawnReason(org.bukkit.event.entity.EntityTransformEvent.TransformReason.PIGLIN_ZOMBIFIED, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.PIGLIN_ZOMBIFIED);  // CraftBukkit - add spawn and transform reasons
+         ZombifiedPiglin zombifiedpiglin = this.convertTo(EntityType.ZOMBIFIED_PIGLIN, true);
+         if (zombifiedpiglin != null) {
+             zombifiedpiglin.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 200, 0));
+-        }
++            net.neoforged.neoforge.event.EventHooks.onLivingConvert(this, zombifiedpiglin);
++        }
++        // Paper start - Fix issues with mob conversion; reset to prevent event spam
++        else {
++            this.timeInOverworld = 0;
++        }
++        // Paper end - Fix issues with mob conversion
+     }
+ 
+     public boolean isAdult() {

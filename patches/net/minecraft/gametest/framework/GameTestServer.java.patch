@@ -1,0 +1,60 @@
+--- a/net/minecraft/gametest/framework/GameTestServer.java
++++ b/net/minecraft/gametest/framework/GameTestServer.java
+@@ -18,6 +_,7 @@
+ import net.minecraft.ReportType;
+ import net.minecraft.SystemReport;
+ import net.minecraft.Util;
++import net.minecraft.commands.CommandSourceStack;
+ import net.minecraft.commands.Commands;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.LayeredRegistryAccess;
+@@ -49,6 +_,7 @@
+ import net.minecraft.world.level.levelgen.presets.WorldPresets;
+ import net.minecraft.world.level.storage.LevelStorageSource;
+ import net.minecraft.world.level.storage.PrimaryLevelData;
++import org.bukkit.command.CommandSender;
+ import org.slf4j.Logger;
+ 
+ public class GameTestServer extends MinecraftServer {
+@@ -62,10 +_,10 @@
+     private final BlockPos spawnPos;
+     private final Stopwatch stopwatch = Stopwatch.createUnstarted();
+     private static final GameRules TEST_GAME_RULES = Util.make(new GameRules(), p_351714_ -> {
+-        p_351714_.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, null);
+-        p_351714_.getRule(GameRules.RULE_WEATHER_CYCLE).set(false, null);
+-        p_351714_.getRule(GameRules.RULE_RANDOMTICKING).set(0, null);
+-        p_351714_.getRule(GameRules.RULE_DOFIRETICK).set(false, null);
++        p_351714_.getRule(GameRules.RULE_DOMOBSPAWNING).set(false, (ServerLevel) null);
++        p_351714_.getRule(GameRules.RULE_WEATHER_CYCLE).set(false, (ServerLevel) null);
++        p_351714_.getRule(GameRules.RULE_RANDOMTICKING).set(0, (ServerLevel) null);
++        p_351714_.getRule(GameRules.RULE_DOFIRETICK).set(false, (ServerLevel) null);
+     });
+     private static final WorldOptions WORLD_OPTIONS = new WorldOptions(0L, false, false);
+     @Nullable
+@@ -151,6 +_,7 @@
+     public boolean initServer() {
+         this.setPlayerList(new PlayerList(this, this.registries(), this.playerDataStorage, 1) {
+         });
++        net.neoforged.neoforge.server.ServerLifecycleHooks.handleServerAboutToStart(this);
+         this.loadLevel();
+         ServerLevel serverlevel = this.overworld();
+         this.testBatches = Lists.newArrayList(GameTestBatchFactory.fromTestFunction(this.testFunctions, serverlevel));
+@@ -158,6 +_,7 @@
+         int i = 20000000;
+         serverlevel.setWeatherParameters(20000000, 20000000, false, false);
+         LOGGER.info("Started game test server");
++        net.neoforged.neoforge.server.ServerLifecycleHooks.handleServerStarting(this);
+         return true;
+     }
+ 
+@@ -301,5 +_,10 @@
+     @Override
+     public boolean isSingleplayerOwner(GameProfile p_177617_) {
+         return false;
++    }
++
++    @Override
++    public CommandSender getBukkitSender(CommandSourceStack wrapper) {
++        return null;
+     }
+ }

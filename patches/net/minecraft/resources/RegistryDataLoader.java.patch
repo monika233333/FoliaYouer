@@ -1,0 +1,147 @@
+--- a/net/minecraft/resources/RegistryDataLoader.java
++++ b/net/minecraft/resources/RegistryDataLoader.java
+@@ -100,7 +_,7 @@
+     public static final List<RegistryDataLoader.RegistryData<?>> DIMENSION_REGISTRIES = List.of(
+         new RegistryDataLoader.RegistryData<>(Registries.LEVEL_STEM, LevelStem.CODEC)
+     );
+-    public static final List<RegistryDataLoader.RegistryData<?>> SYNCHRONIZED_REGISTRIES = List.of(
++    public static final List<RegistryDataLoader.RegistryData<?>> SYNCHRONIZED_REGISTRIES = net.neoforged.neoforge.registries.DataPackRegistriesHooks.grabNetworkableRegistries(List.of(
+         new RegistryDataLoader.RegistryData<>(Registries.BIOME, Biome.NETWORK_CODEC),
+         new RegistryDataLoader.RegistryData<>(Registries.CHAT_TYPE, ChatType.DIRECT_CODEC),
+         new RegistryDataLoader.RegistryData<>(Registries.TRIM_PATTERN, TrimPattern.DIRECT_CODEC),
+@@ -112,10 +_,13 @@
+         new RegistryDataLoader.RegistryData<>(Registries.BANNER_PATTERN, BannerPattern.DIRECT_CODEC),
+         new RegistryDataLoader.RegistryData<>(Registries.ENCHANTMENT, Enchantment.DIRECT_CODEC),
+         new RegistryDataLoader.RegistryData<>(Registries.JUKEBOX_SONG, JukeboxSong.DIRECT_CODEC)
+-    );
++    )); // Neo: Keep the list so custom registries can be added later
+ 
+     public static RegistryAccess.Frozen load(ResourceManager p_252046_, RegistryAccess p_249916_, List<RegistryDataLoader.RegistryData<?>> p_250344_) {
+-        return load((p_321412_, p_321413_) -> p_321412_.loadFromResources(p_252046_, p_321413_), p_249916_, p_250344_);
++        return load((p_321412_, p_321413_, conversions) -> {
++            loadElementFromResource$conversions = conversions;
++            p_321412_.loadFromResources(p_252046_, p_321413_);
++        }, p_249916_, p_250344_);
+     }
+ 
+     public static RegistryAccess.Frozen load(
+@@ -124,7 +_,7 @@
+         RegistryAccess p_321850_,
+         List<RegistryDataLoader.RegistryData<?>> p_321716_
+     ) {
+-        return load((p_325557_, p_325558_) -> p_325557_.loadFromNetwork(p_321642_, p_326068_, p_325558_), p_321850_, p_321716_);
++        return load((p_325557_, p_325558_, conversions) -> p_325557_.loadFromNetwork(p_321642_, p_326068_, p_325558_, conversions), p_321850_, p_321716_);
+     }
+ 
+     private static RegistryAccess.Frozen load(
+@@ -135,9 +_,11 @@
+             .map(p_321410_ -> p_321410_.create(Lifecycle.stable(), map))
+             .collect(Collectors.toUnmodifiableList());
+         RegistryOps.RegistryInfoLookup registryops$registryinfolookup = createContext(p_321583_, list);
+-        list.forEach(p_321416_ -> p_321713_.apply((RegistryDataLoader.Loader<?>)p_321416_, registryops$registryinfolookup));
++        final io.papermc.paper.registry.data.util.Conversions conversions = new io.papermc.paper.registry.data.util.Conversions(registryops$registryinfolookup); // Paper - create conversions
++        list.forEach(p_321416_ -> p_321713_.apply((RegistryDataLoader.Loader<?>)p_321416_, registryops$registryinfolookup, conversions));
+         list.forEach(p_344258_ -> {
+             Registry<?> registry = p_344258_.registry();
++            io.papermc.paper.registry.PaperRegistryListenerManager.INSTANCE.runFreezeListeners(p_344258_.registry.key(), conversions); // Paper - run pre-freeze listeners
+ 
+             try {
+                 registry.freeze();
+@@ -196,6 +_,7 @@
+         LOGGER.error("Registry loading errors:\n{}", stringwriter);
+     }
+ 
++    private static io.papermc.paper.registry.data.util.Conversions loadElementFromResource$conversions;
+     private static <E> void loadElementFromResource(
+         WritableRegistry<E> p_326195_,
+         Decoder<E> p_326476_,
+@@ -204,14 +_,22 @@
+         Resource p_326141_,
+         RegistrationInfo p_326033_
+     ) throws IOException {
++        Decoder<Optional<E>> decoder = net.neoforged.neoforge.common.conditions.ConditionalOps.createConditionalCodec(net.neoforged.neoforge.common.util.NeoForgeExtraCodecs.decodeOnly(p_326476_));
+         try (Reader reader = p_326141_.openAsReader()) {
+             JsonElement jsonelement = JsonParser.parseReader(reader);
+-            DataResult<E> dataresult = p_326476_.parse(p_325932_, jsonelement);
+-            E e = dataresult.getOrThrow();
+-            p_326195_.register(p_326054_, e, p_326033_);
++            DataResult<Optional<E>> dataresult = decoder.parse(p_325932_, jsonelement);
++            Optional<E> candidate = dataresult.getOrThrow();
++            candidate.ifPresentOrElse(e -> {
++                if (Boolean.valueOf(false)) p_326195_.register(p_326054_, e, p_326033_);
++                io.papermc.paper.registry.PaperRegistryListenerManager.INSTANCE.registerWithListeners(p_326195_, p_326054_, e, p_326033_, loadElementFromResource$conversions); // Paper - register with listeners
++            }, () -> {
++                LOGGER.debug("Skipping loading registry entry {} as its conditions were not met", p_326054_);
++            });
+         }
+     }
+ 
++
++    static io.papermc.paper.registry.data.util.Conversions loadContentsFromManager$conversions; // Paper - pass conversions
+     static <E> void loadContentsFromManager(
+         ResourceManager p_321535_,
+         RegistryOps.RegistryInfoLookup p_321612_,
+@@ -221,7 +_,7 @@
+     ) {
+         String s = Registries.elementsDirPath(p_321557_.key());
+         FileToIdConverter filetoidconverter = FileToIdConverter.json(s);
+-        RegistryOps<JsonElement> registryops = RegistryOps.create(JsonOps.INSTANCE, p_321612_);
++        RegistryOps<JsonElement> registryops = new net.neoforged.neoforge.common.conditions.ConditionalOps<>(RegistryOps.create(JsonOps.INSTANCE, p_321612_), net.neoforged.neoforge.common.conditions.ICondition.IContext.TAGS_INVALID);
+ 
+         for (Entry<ResourceLocation, Resource> entry : filetoidconverter.listMatchingResources(p_321535_).entrySet()) {
+             ResourceLocation resourcelocation = entry.getKey();
+@@ -230,6 +_,7 @@
+             RegistrationInfo registrationinfo = REGISTRATION_INFO_CACHE.apply(resource.knownPackInfo());
+ 
+             try {
++                loadElementFromResource$conversions = loadContentsFromManager$conversions == null ? new io.papermc.paper.registry.data.util.Conversions(p_321612_) : loadContentsFromManager$conversions;  // Paper - pass conversions
+                 loadElementFromResource(p_321557_, p_321820_, registryops, resourcekey, resource, registrationinfo);
+             } catch (Exception exception) {
+                 p_321649_.put(
+@@ -287,30 +_,40 @@
+ 
+     static record Loader<T>(RegistryDataLoader.RegistryData<T> data, WritableRegistry<T> registry, Map<ResourceKey<?>, Exception> loadingErrors) {
+         public void loadFromResources(ResourceManager p_321702_, RegistryOps.RegistryInfoLookup p_321840_) {
+-            RegistryDataLoader.loadContentsFromManager(p_321702_, p_321840_, this.registry, this.data.elementCodec, this.loadingErrors);
++            RegistryDataLoader.loadContentsFromManager(p_321702_, p_321840_, this.registry, this.data.elementCodec, this.loadingErrors); // Paper - pass conversions
+         }
+ 
+         public void loadFromNetwork(
+             Map<ResourceKey<? extends Registry<?>>, List<RegistrySynchronization.PackedRegistryEntry>> p_321562_,
+             ResourceProvider p_326419_,
+-            RegistryOps.RegistryInfoLookup p_321617_
++            RegistryOps.RegistryInfoLookup p_321617_,
++            io.papermc.paper.registry.data.util.Conversions conversions // Paper
+         ) {
+-            RegistryDataLoader.loadContentsFromNetwork(p_321562_, p_326419_, p_321617_, this.registry, this.data.elementCodec, this.loadingErrors);
++            loadElementFromResource$conversions = conversions; // Paper - pass conversions
++            RegistryDataLoader.loadContentsFromNetwork(p_321562_, p_326419_, p_321617_, this.registry, this.data.elementCodec, this.loadingErrors); // Paper - pass conversions
+         }
+     }
+ 
+     @FunctionalInterface
+     interface LoadingFunction {
+-        void apply(RegistryDataLoader.Loader<?> p_321864_, RegistryOps.RegistryInfoLookup p_321656_);
++        void apply(RegistryDataLoader.Loader<?> p_321864_, RegistryOps.RegistryInfoLookup p_321656_, io.papermc.paper.registry.data.util.Conversions conversions); // Paper - pass conversions
+     }
+ 
+-    public static record RegistryData<T>(ResourceKey<? extends Registry<T>> key, Codec<T> elementCodec, boolean requiredNonEmpty) {
++    public static record RegistryData<T>(ResourceKey<? extends Registry<T>> key, Codec<T> elementCodec, boolean requiredNonEmpty, java.util.function.Consumer<net.neoforged.neoforge.registries.RegistryBuilder<T>> registryBuilderConsumer) {
++        public RegistryData(ResourceKey<? extends Registry<T>> key, Codec<T> elementCodec, boolean requiredNonEmpty) {
++            this(key, elementCodec, requiredNonEmpty, registryBuilder -> {});
++        }
++
+         RegistryData(ResourceKey<? extends Registry<T>> p_251360_, Codec<T> p_248976_) {
+             this(p_251360_, p_248976_, false);
+         }
+ 
+         RegistryDataLoader.Loader<T> create(Lifecycle p_251662_, Map<ResourceKey<?>, Exception> p_251565_) {
+-            WritableRegistry<T> writableregistry = new MappedRegistry<>(this.key, p_251662_);
++            net.neoforged.neoforge.registries.RegistryBuilder<T> registryBuilder = new net.neoforged.neoforge.registries.RegistryBuilder<>(key);
++            registryBuilderConsumer.accept(registryBuilder);
++
++            WritableRegistry<T> writableregistry = (WritableRegistry<T>) registryBuilder.disableRegistrationCheck().create();
++            io.papermc.paper.registry.PaperRegistryAccess.instance().registerRegistry(this.key, writableregistry); // Paper - initialize API registry
+             return new RegistryDataLoader.Loader<>(this, writableregistry, p_251565_);
+         }
+ 

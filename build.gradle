@@ -1,0 +1,52 @@
+plugins {
+    id 'net.neoforged.gradleutils' version '4.0.1'
+    id 'dev.lukebemish.immaculate' version '0.1.6' apply false
+}
+
+project.version = project.neoforge_version
+// Print version, generally useful to know - also appears on CI
+System.out.println("NeoForge version ${project.version}")
+
+// Youer start
+def gitInfo = gradleutils.gitInfo
+def originalProps = new Properties()
+file("gradle.properties").withInputStream { originalProps.load(it) }
+originalProps.setProperty("git.abbreviatedId",  gitInfo.abbreviatedId)
+file("gradle.properties").withWriter { writer ->
+    originalProps.store(writer, "Preserved original properties with Git info")
+    writer.write("\n")
+}
+System.out.println("Git Commit " + originalProps.getProperty("git.abbreviatedId"))
+//Youer end
+
+allprojects {
+    version = rootProject.version
+    group = 'net.neoforged'
+
+    apply plugin: 'java'
+
+    java.toolchain.languageVersion.set(JavaLanguageVersion.of(project.java_version))
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.warnings = false
+        options.compilerArgs.addAll([
+                '--add-modules=jdk.incubator.vector'
+        ])
+    }
+    configurations.configureEach {
+        exclude group: 'com.mojang', module: 'brigadier'
+    }
+}
+
+// Remove src/ sources from the root project. They are used in the neoforge subproject.
+sourceSets {
+    main {
+        java {
+            srcDirs = []
+        }
+        resources {
+            srcDirs = []
+        }
+    }
+}
