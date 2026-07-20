@@ -41,6 +41,7 @@ import net.minecraft.util.SortedArraySet;
 import net.minecraft.util.Unit;
 import net.minecraft.world.level.ChunkPos;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayDeque;
@@ -66,7 +67,7 @@ import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 
 public final class ChunkHolderManager {
 
-    private static final Logger LOGGER = LogUtils.getClassLogger();
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChunkHolderManager.class);
 
     public static final int FULL_LOADED_TICKET_LEVEL    = ChunkLevel.FULL_CHUNK_LEVEL;
     public static final int BLOCK_TICKING_TICKET_LEVEL  = ChunkLevel.BLOCK_TICKING_LEVEL;

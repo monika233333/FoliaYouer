@@ -474,7 +474,7 @@ public final class RegionizedWorldData {
         final ServerPlayer player = conn.getPlayer();
         // now that the connection is removed, we can allow this region to die
         player.serverLevel().chunkSource.removeTicketAtLevel(
-            ServerGamePacketListenerImpl.DISCONNECT_TICKET, player.connection.disconnectPos,
+            ServerGamePacketListenerImpl.DISCONNECT_TICKET, new ChunkPos(player.connection.disconnectPos),
             ChunkHolderManager.MAX_TICKET_LEVEL,
             player.connection.disconnectTicketId
         );

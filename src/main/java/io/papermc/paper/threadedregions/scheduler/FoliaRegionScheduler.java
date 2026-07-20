@@ -198,7 +198,7 @@ public final class FoliaRegionScheduler implements RegionScheduler {
             final int chunkZ = sectionZ << shift;
 
             world.moonrise$getChunkTaskScheduler().chunkHolderManager.addTicketAtLevel(
-                TicketType.REGION_SCHEDULER_API_HOLD, chunkX, chunkZ, ChunkHolderManager.MAX_TICKET_LEVEL, Unit.INSTANCE
+                TicketType.REGION_SCHEDULER_API_HOLD, chunkX, chunkZ, ChunkHolderManager.MAX_TICKET_LEVEL, Long.valueOf(0L)
             );
         }
 
@@ -209,7 +209,7 @@ public final class FoliaRegionScheduler implements RegionScheduler {
             final int chunkZ = CoordinateUtils.getChunkZ(sectionKey) << shift;
 
             world.moonrise$getChunkTaskScheduler().chunkHolderManager.removeTicketAtLevel(
-                TicketType.REGION_SCHEDULER_API_HOLD, chunkX, chunkZ, ChunkHolderManager.MAX_TICKET_LEVEL, Unit.INSTANCE
+                TicketType.REGION_SCHEDULER_API_HOLD, chunkX, chunkZ, ChunkHolderManager.MAX_TICKET_LEVEL, Long.valueOf(0L)
             );
         }
 

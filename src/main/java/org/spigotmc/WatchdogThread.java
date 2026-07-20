@@ -151,8 +151,7 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
         }
     }
 
-    private static void dumpThread(ThreadInfo thread, Logger log)
-    {
+    public static void dumpThread(ThreadInfo thread, Logger log) { // Folia - region threading - public
         log.log( Level.SEVERE, "------------------------------" );
         //
         log.log( Level.SEVERE, "Current Thread: " + thread.getThreadName() );

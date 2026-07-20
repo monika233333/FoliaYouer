@@ -2,6 +2,7 @@ package io.papermc.paper.threadedregions.scheduler;
 
 import ca.spottedleaf.concurrentutil.util.Validate;
 import com.mojang.logging.LogUtils;
+import org.slf4j.LoggerFactory;
 import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
@@ -22,7 +23,7 @@ import java.util.logging.Level;
 
 public final class FoliaAsyncScheduler implements AsyncScheduler {
 
-    private static final Logger LOGGER = LogUtils.getClassLogger();
+    private static final Logger LOGGER = LoggerFactory.getLogger(FoliaAsyncScheduler.class);
 
     private final Executor executors = new ThreadPoolExecutor(Math.max(4, Runtime.getRuntime().availableProcessors() / 2), Integer.MAX_VALUE,
         30L, TimeUnit.SECONDS, new SynchronousQueue<>(),

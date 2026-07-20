@@ -48,6 +48,7 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.chunk.status.ChunkStep;
 import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -63,7 +64,7 @@ import java.util.function.Consumer;
 
 public final class ChunkTaskScheduler {
 
-    private static final Logger LOGGER = LogUtils.getClassLogger();
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChunkTaskScheduler.class);
 
     static int newChunkSystemIOThreads;
     static int newChunkSystemGenParallelism;

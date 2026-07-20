@@ -1,6 +1,7 @@
 package io.papermc.paper.threadedregions;
 
 import com.mojang.logging.LogUtils;
+import org.slf4j.LoggerFactory;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -12,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class RegionShutdownThread extends ca.spottedleaf.moonrise.common.util.TickThread {
 
-    private static final Logger LOGGER = LogUtils.getClassLogger();
+    private static final Logger LOGGER = LoggerFactory.getLogger(RegionShutdownThread.class);
 
     ThreadedRegionizer.ThreadedRegion<TickRegions.TickRegionData, TickRegions.TickRegionSectionData> shuttingDown;
 
