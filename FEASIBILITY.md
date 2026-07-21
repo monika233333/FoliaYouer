@@ -1,3 +1,5 @@
+左脚蹬GLM5.2，右脚蹬KIMI K3
+
 # FoliaYouer 可行性报告
 
 ## 目标
