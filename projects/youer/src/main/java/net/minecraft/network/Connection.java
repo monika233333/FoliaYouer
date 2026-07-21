@@ -173,6 +173,7 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
         if (this.delayedDisconnect != null) {
             this.disconnect(this.delayedDisconnect);
         }
+        this.becomeActive = true; // FoliaYouer - region threading
         net.neoforged.neoforge.network.connection.ConnectionUtils.setConnection(p_129525_, this);
     }
 
@@ -605,6 +606,7 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
             this.channel.close(); // We can't wait as this may be called from an event loop.
             this.disconnectionDetails = p_350867_;
         }
+        this.becomeActive = true; // FoliaYouer - region threading
     }
 
     public boolean isMemoryConnection() {

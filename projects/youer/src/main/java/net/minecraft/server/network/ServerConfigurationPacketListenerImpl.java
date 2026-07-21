@@ -83,6 +83,7 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
 
     // Neo: Hide vanilla's startConfiguration() in this method so we can call it in handlePong below.
     private void runConfiguration() {
+        LOGGER.info("[FoliaYouer-Debug] runConfiguration called on thread: " + Thread.currentThread().getName());
         this.send(new ClientboundCustomPayloadPacket(new BrandPayload(this.server.getServerModName())));
         ServerLinks serverlinks = this.server.serverLinks();
         // CraftBukkit start
@@ -105,6 +106,7 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
         this.addOptionalTasks();
         this.configurationTasks.add(new JoinWorldTask());
         this.startNextTask();
+        LOGGER.info("[FoliaYouer-Debug] runConfiguration completed, tasks queued: " + this.configurationTasks.size());
     }
 
     public void returnToWorld() {
@@ -120,6 +122,7 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
 
     @Override
     public void handleCustomPayload(net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket p_294276_) {
+        LOGGER.info("[FoliaYouer-Debug] handleCustomPayload called, payload=" + p_294276_.payload().type().id() + ", class=" + p_294276_.payload().getClass().getSimpleName() + ", thread=" + Thread.currentThread().getName());
         // Neo: Perform modded network initialization when the client sends their channel list.
         if (p_294276_.payload() instanceof net.neoforged.neoforge.network.payload.ModdedNetworkQueryPayload moddedEnvironmentPayload) {
             this.connectionType = net.neoforged.neoforge.network.connection.ConnectionType.NEOFORGE;
@@ -128,16 +131,21 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
         }
 
         super.handleCustomPayload(p_294276_); // Neo: Call super to invoke modded payload handling.
+        LOGGER.info("[FoliaYouer-Debug] handleCustomPayload completed for payload=" + p_294276_.payload().type().id());
     }
 
     @Override
     public void handlePong(net.minecraft.network.protocol.common.ServerboundPongPacket p_295142_) {
         super.handlePong(p_295142_);
+        LOGGER.info("[FoliaYouer-Debug] handlePong called, id=" + p_295142_.getId() + ", thread=" + Thread.currentThread().getName());
         // During startConfiguration() we send a ping with id 0, if we get a pong back, we initiate the connection.
         if (p_295142_.getId() == 0) {
+            LOGGER.info("[FoliaYouer-Debug] handlePong id=0, isNeoForge=" + this.connectionType.isNeoForge());
             if (!this.connectionType.isNeoForge() && !net.neoforged.neoforge.network.registration.NetworkRegistry.initializeOtherConnection(this)) {
+                LOGGER.info("[FoliaYouer-Debug] handlePong: initializeOtherConnection failed, returning");
                 return;
             }
+            LOGGER.info("[FoliaYouer-Debug] handlePong: scheduling runConfiguration");
             ThreadUtils.executeOnMainThread(this::runConfiguration);
         }
     }
@@ -158,7 +166,14 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
 
     @Override
     public void handleSelectKnownPacks(ServerboundSelectKnownPacks p_326180_) {
-        PacketUtils.ensureRunningOnSameThread(p_326180_, this, this.server);
+        // FoliaYouer - do not use ensureRunningOnSameThread (server thread is sleeping)
+        LOGGER.info("[FoliaYouer-Debug] handleSelectKnownPacks called on thread: " + Thread.currentThread().getName() + ", isGlobalTick=" + io.papermc.paper.threadedregions.RegionizedServer.isGlobalTickThread());
+        if (!io.papermc.paper.threadedregions.RegionizedServer.isGlobalTickThread()) {
+            LOGGER.info("[FoliaYouer-Debug] scheduling handleSelectKnownPacks to global tick thread");
+            io.papermc.paper.threadedregions.RegionizedServer.getInstance().addTask(() -> this.handleSelectKnownPacks(p_326180_));
+            throw net.minecraft.server.RunningOnDifferentThreadException.RUNNING_ON_DIFFERENT_THREAD;
+        }
+        LOGGER.info("[FoliaYouer-Debug] handleSelectKnownPacks executing on global tick thread");
         if (this.synchronizeRegistriesTask == null) {
             throw new IllegalStateException("Unexpected response from client: received pack selection, but no negotiation ongoing");
         } else {
@@ -169,7 +184,14 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
 
     @Override
     public void handleConfigurationFinished(ServerboundFinishConfigurationPacket p_294283_) {
-        PacketUtils.ensureRunningOnSameThread(p_294283_, this, this.server);
+        // FoliaYouer - do not use ensureRunningOnSameThread (server thread is sleeping)
+        LOGGER.info("[FoliaYouer-Debug] handleConfigurationFinished called on thread: " + Thread.currentThread().getName() + ", isGlobalTick=" + io.papermc.paper.threadedregions.RegionizedServer.isGlobalTickThread());
+        if (!io.papermc.paper.threadedregions.RegionizedServer.isGlobalTickThread()) {
+            LOGGER.info("[FoliaYouer-Debug] scheduling handleConfigurationFinished to global tick thread");
+            io.papermc.paper.threadedregions.RegionizedServer.getInstance().addTask(() -> this.handleConfigurationFinished(p_294283_));
+            throw net.minecraft.server.RunningOnDifferentThreadException.RUNNING_ON_DIFFERENT_THREAD;
+        }
+        LOGGER.info("[FoliaYouer-Debug] handleConfigurationFinished executing on global tick thread");
         this.finishCurrentTask(JoinWorldTask.TYPE);
         this.connection.setupOutboundProtocol(GameProtocols.CLIENTBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(this.server.registryAccess(), this.connectionType)));
         // Packets can only be sent after the outbound protocol is set up again
@@ -195,58 +217,25 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
             playerlist.getPlayerForLogin$player = this.player;
             ServerPlayer serverplayer = playerlist.getPlayerForLogin(this.gameProfile, this.clientInformation); // CraftBukkit
 
-            // Folia start - region threading - rewrite login process
-            io.papermc.paper.threadedregions.RegionizedServer.ensureGlobalTickThread("Cannot handle player login off global tick thread");
+            // FoliaYouer start - region threading - rewrite login process
+            // schedule login on global tick thread (this method runs on Netty IO thread)
             CommonListenerCookie clientData = this.createCookie(this.clientInformation, this.connectionType); // Youer - NeoForge 2-arg createCookie
-            org.apache.commons.lang3.mutable.MutableObject<net.minecraft.nbt.CompoundTag> data = new org.apache.commons.lang3.mutable.MutableObject<>();
-            org.apache.commons.lang3.mutable.MutableObject<String> lastKnownName = new org.apache.commons.lang3.mutable.MutableObject<>();
-            ca.spottedleaf.concurrentutil.completable.Completable<org.bukkit.Location> toComplete = new ca.spottedleaf.concurrentutil.completable.Completable<>();
-            // note: need to call addWaiter before completion to ensure the callback is invoked synchronously
-            // the loadSpawnForNewPlayer function always completes the completable once the chunks were loaded,
-            // on the load callback for those chunks (so on the same region)
-            // this guarantees the chunk cannot unload under our feet
-            toComplete.addWaiter((org.bukkit.Location loc, Throwable t) -> {
-                int chunkX = net.minecraft.util.Mth.floor(loc.getX()) >> 4;
-                int chunkZ = net.minecraft.util.Mth.floor(loc.getZ()) >> 4;
-
-                net.minecraft.server.level.ServerLevel world = ((org.bukkit.craftbukkit.CraftWorld)loc.getWorld()).getHandle();
-                // we just need to hold the chunks at loaded until the next tick
-                // so we do not need to care about unique IDs for the ticket
-                world.getChunkSource().addTicketAtLevel(
-                    net.minecraft.server.level.TicketType.START,
-                    new net.minecraft.world.level.ChunkPos(chunkX, chunkZ),
-                    ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager.FULL_LOADED_TICKET_LEVEL,
-                    net.minecraft.util.Unit.INSTANCE
-                );
-
-                io.papermc.paper.threadedregions.RegionizedServer.getInstance().taskQueue.queueTickTaskQueue(
-                    world, chunkX, chunkZ,
-                    () -> {
-                        // once switchToMain is set, the current ticking region now owns the connection and is responsible
-                        // for cleaning it up
-                        playerlist.placeNewPlayer(
-                            ServerConfigurationPacketListenerImpl.this.connection,
-                            serverplayer,
-                            clientData,
-                            java.util.Optional.ofNullable(data.getValue()),
-                            lastKnownName.getValue(),
-                            loc
-                        );
-                    },
-                    ca.spottedleaf.concurrentutil.executor.standard.PrioritisedExecutor.Priority.HIGHER
-                );
-            });
             this.switchToMain = true;
-            try {
-                // now the connection responsibility is transferred on the region
-                playerlist.loadSpawnForNewPlayer(this.connection, serverplayer, clientData, data, lastKnownName, toComplete);
-            } catch (final Throwable throwable) {
-                // assume toComplete will not be invoked
-                // ensure global tick thread owns the connection again, to properly disconnect it
-                this.switchToMain = false;
-                throw new RuntimeException(throwable);
-            }
-            // Folia end - region threading - rewrite login process
+            LOGGER.info("[FoliaYouer-Debug] handleConfigurationFinished: scheduling placeNewPlayer on global tick thread");
+            io.papermc.paper.threadedregions.RegionizedServer.getInstance().addTask(
+                () -> {
+                    try {
+                        LOGGER.info("[FoliaYouer-Debug] placeNewPlayer(addTask) executing on thread: " + Thread.currentThread().getName());
+                        playerlist.placeNewPlayer(this.connection, serverplayer, clientData);
+                        LOGGER.info("[FoliaYouer-Debug] placeNewPlayer(addTask) completed successfully");
+                    } catch (Exception ex) {
+                        LOGGER.error("Couldn't place player in world", (Throwable)ex);
+                        this.connection.send(new ClientboundDisconnectPacket(DISCONNECT_REASON_INVALID_DATA));
+                        this.connection.disconnect(DISCONNECT_REASON_INVALID_DATA);
+                    }
+                }
+            );
+            // FoliaYouer end - region threading - rewrite login process
         } catch (Exception exception) {
             LOGGER.error("Couldn't place player in world", (Throwable)exception);
             this.connection.send(new ClientboundDisconnectPacket(DISCONNECT_REASON_INVALID_DATA));
@@ -266,6 +255,7 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
             ConfigurationTask configurationtask = this.configurationTasks.poll();
             if (configurationtask != null) {
                 this.currentTask = configurationtask;
+                LOGGER.info("[FoliaYouer-Debug] startNextTask: starting task " + configurationtask.type().id() + " on thread " + Thread.currentThread().getName());
                 configurationtask.start(this::send);
             }
         }
@@ -273,7 +263,9 @@ public class ServerConfigurationPacketListenerImpl extends ServerCommonPacketLis
 
     public void finishCurrentTask(ConfigurationTask.Type p_294853_) {
         ConfigurationTask.Type configurationtask$type = this.currentTask != null ? this.currentTask.type() : null;
+        LOGGER.info("[FoliaYouer-Debug] finishCurrentTask called: requested=" + p_294853_.id() + ", current=" + (configurationtask$type != null ? configurationtask$type.id() : "null") + ", thread=" + Thread.currentThread().getName());
         if (!p_294853_.equals(configurationtask$type)) {
+            LOGGER.error("[FoliaYouer-Debug] finishCurrentTask TYPE MISMATCH!");
             throw new IllegalStateException("Unexpected request for task finish, current task: " + configurationtask$type + ", requested: " + p_294853_);
         } else {
             this.currentTask = null;

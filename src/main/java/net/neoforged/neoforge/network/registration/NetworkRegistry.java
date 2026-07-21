@@ -263,10 +263,11 @@ public class NetworkRegistry {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static void handleModdedPayload(ServerCommonPacketListener listener, ServerboundCustomPayloadPacket packet) {
+        LOGGER.info("[FoliaYouer-Debug] handleModdedPayload entry, payloadId={}, class={}", packet.payload().type().id(), packet.payload().getClass().getSimpleName());
         NetworkPayloadSetup payloadSetup = ChannelAttributes.getPayloadSetup(listener.getConnection());
         // Check if channels were negotiated.
         if (payloadSetup == null) {
-            LOGGER.warn("Received a modded payload before channel negotiation; disconnecting.");
+            LOGGER.warn("[FoliaYouer-Debug] handleModdedPayload: payloadSetup is NULL, disconnecting");
             listener.disconnect(Component.translatable("multiplayer.disconnect.incompatible", "NeoForge %s (No Payload Setup)".formatted(NeoForgeVersion.getVersion())));
             return;
         }
@@ -279,22 +280,24 @@ public class NetworkRegistry {
 
             // Check if the channel should even be processed.
             if (channel == null && !hasAdhocChannel(listener.protocol(), context.payloadId(), PacketFlow.SERVERBOUND)) {
-                LOGGER.warn("Received a modded payload {} with an unknown or unaccepted channel; disconnecting.", context.payloadId());
+                LOGGER.warn("[FoliaYouer-Debug] handleModdedPayload: channel is NULL for {}, disconnecting", context.payloadId());
                 listener.disconnect(Component.translatable("multiplayer.disconnect.incompatible", "NeoForge %s (No Channel for %s)".formatted(NeoForgeVersion.getVersion(), context.payloadId().toString())));
                 return;
             }
 
             PayloadRegistration registration = PAYLOAD_REGISTRATIONS.get(listener.protocol()).get(context.payloadId());
             if (registration == null) {
-                LOGGER.error("Received a modded payload {} with no registration; disconnecting.", context.payloadId());
+                LOGGER.error("[FoliaYouer-Debug] handleModdedPayload: registration is NULL for {}, disconnecting", context.payloadId());
                 listener.disconnect(Component.translatable("multiplayer.disconnect.incompatible", "NeoForge %s (No Handler for %s)".formatted(NeoForgeVersion.getVersion(), context.payloadId().toString())));
                 dumpStackToLog(); // This case is only likely when handling packets without serialization, i.e. from a compound listener, so this can help debug why.
                 return;
             }
 
+            LOGGER.info("[FoliaYouer-Debug] handleModdedPayload: calling handler.handle for {}, registration={}", context.payloadId(), registration.getClass().getSimpleName());
             registration.handler().handle(packet.payload(), context);
+            LOGGER.info("[FoliaYouer-Debug] handleModdedPayload: handler.handle completed for {}", context.payloadId());
         } else {
-            LOGGER.error("Received a modded payload {} while not in the configuration or play phase; disconnecting.", context.payloadId());
+            LOGGER.error("[FoliaYouer-Debug] handleModdedPayload: protocol not in PAYLOAD_REGISTRATIONS: {}, disconnecting", listener.protocol());
             listener.disconnect(Component.translatable("multiplayer.disconnect.incompatible", "NeoForge %s (Invalid Protocol %s)".formatted(NeoForgeVersion.getVersion(), listener.protocol().name())));
         }
     }

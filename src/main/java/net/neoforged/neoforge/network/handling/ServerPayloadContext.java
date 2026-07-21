@@ -32,7 +32,22 @@ public record ServerPayloadContext(ServerCommonPacketListener listener, Resource
             task.run();
             return CompletableFuture.completedFuture(null);
         }
-        return NetworkRegistry.guard(listener.getMainThreadEventLoop().submit(task), this.payloadId);
+        // Folia: MinecraftServer event loop may not process tasks during configuration phase.
+        // Schedule directly on the global region thread instead.
+        org.slf4j.Logger logger = com.mojang.logging.LogUtils.getLogger();
+        logger.info("[FoliaYouer-Debug] ServerPayloadContext.enqueueWork(Runnable) scheduling to global tick thread, payloadId={}, currentThread={}",
+            this.payloadId, Thread.currentThread().getName());
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        io.papermc.paper.threadedregions.RegionizedServer.getInstance().addTask(() -> {
+            try {
+                task.run();
+                future.complete(null);
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+                logger.error("[FoliaYouer-Debug] enqueueWork task failed for payloadId={}", this.payloadId, t);
+            }
+        });
+        return future;
     }
 
     @Override
@@ -40,7 +55,21 @@ public record ServerPayloadContext(ServerCommonPacketListener listener, Resource
         if (listener.getMainThreadEventLoop().isSameThread()) {
             return CompletableFuture.completedFuture(task.get());
         }
-        return NetworkRegistry.guard(listener.getMainThreadEventLoop().submit(task), this.payloadId);
+        // Folia: MinecraftServer event loop may not process tasks during configuration phase.
+        // Schedule directly on the global region thread instead.
+        org.slf4j.Logger logger = com.mojang.logging.LogUtils.getLogger();
+        logger.info("[FoliaYouer-Debug] ServerPayloadContext.enqueueWork(Supplier) scheduling to global tick thread, payloadId={}, currentThread={}",
+            this.payloadId, Thread.currentThread().getName());
+        CompletableFuture<T> future = new CompletableFuture<>();
+        io.papermc.paper.threadedregions.RegionizedServer.getInstance().addTask(() -> {
+            try {
+                future.complete(task.get());
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+                logger.error("[FoliaYouer-Debug] enqueueWork(Supplier) task failed for payloadId={}", this.payloadId, t);
+            }
+        });
+        return future;
     }
 
     @Override

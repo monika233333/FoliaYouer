@@ -437,7 +437,14 @@ public class ServerLoginPacketListenerImpl implements ServerLoginPacketListener,
 
     @Override
     public void handleLoginAcknowledgement(ServerboundLoginAcknowledgedPacket p_295661_) {
-        PacketUtils.ensureRunningOnSameThread(p_295661_, this, this.server); // CraftBukkit
+        // FoliaYouer - do not use ensureRunningOnSameThread (server thread is sleeping)
+        LOGGER.info("[FoliaYouer-Debug] handleLoginAcknowledgement called on thread: " + Thread.currentThread().getName() + ", isGlobalTick=" + io.papermc.paper.threadedregions.RegionizedServer.isGlobalTickThread());
+        if (!io.papermc.paper.threadedregions.RegionizedServer.isGlobalTickThread()) {
+            LOGGER.info("[FoliaYouer-Debug] scheduling handleLoginAcknowledgement to global tick thread");
+            io.papermc.paper.threadedregions.RegionizedServer.getInstance().addTask(() -> this.handleLoginAcknowledgement(p_295661_));
+            throw net.minecraft.server.RunningOnDifferentThreadException.RUNNING_ON_DIFFERENT_THREAD;
+        }
+        LOGGER.info("[FoliaYouer-Debug] handleLoginAcknowledgement executing on global tick thread");
         Validate.validState(this.state == ServerLoginPacketListenerImpl.State.PROTOCOL_SWITCHING, "Unexpected login acknowledgement packet");
         this.connection.setupOutboundProtocol(ConfigurationProtocols.CLIENTBOUND);
         CommonListenerCookie commonlistenercookie = CommonListenerCookie.createInitial(Objects.requireNonNull(this.authenticatedProfile), this.transferred);
@@ -458,7 +465,11 @@ public class ServerLoginPacketListenerImpl implements ServerLoginPacketListener,
     @Override
     public void handleCookieResponse(ServerboundCookieResponsePacket p_320866_) {
         // CraftBukkit start
-        PacketUtils.ensureRunningOnSameThread(p_320866_, this, this.server);
+        // FoliaYouer - do not use ensureRunningOnSameThread (server thread is sleeping)
+        if (!io.papermc.paper.threadedregions.RegionizedServer.isGlobalTickThread()) {
+            io.papermc.paper.threadedregions.RegionizedServer.getInstance().addTask(() -> this.handleCookieResponse(p_320866_));
+            throw net.minecraft.server.RunningOnDifferentThreadException.RUNNING_ON_DIFFERENT_THREAD;
+        }
         if (this.player != null && this.player.getBukkitEntity().handleCookieResponse(p_320866_)) {
             return;
         }

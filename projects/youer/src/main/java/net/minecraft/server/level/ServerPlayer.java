@@ -397,7 +397,9 @@ public class ServerPlayer extends Player {
         this.stats = p_254143_.getPlayerList().getPlayerStats(this);
         this.advancements = p_254143_.getPlayerList().getPlayerAdvancements(this);
         this.disable$moveTo.set(true);
-        this.moveTo(this.adjustSpawnLocation(p_254435_, p_254435_.getSharedSpawnPos()).getBottomCenter(), 0.0F, 0.0F); // Paper - Don't move existing players to world spawn
+        // FoliaYouer start - region threading - do not sync load chunks on global tick thread
+        // this.moveTo(this.adjustSpawnLocation(p_254435_, p_254435_.getSharedSpawnPos()).getBottomCenter(), 0.0F, 0.0F); // Paper - Don't move existing players to world spawn
+        // FoliaYouer end - region threading
         this.updateOptionsNoEvents(p_301997_); // Paper - don't call options events on login
         this.object = null;
 

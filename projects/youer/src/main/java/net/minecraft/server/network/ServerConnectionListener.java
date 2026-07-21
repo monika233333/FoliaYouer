@@ -164,6 +164,9 @@ public class ServerConnectionListener {
                     connection.configurePacketHandler(channelpipeline);
                     connection.setListenerForServerboundHandshake(new ServerHandshakePacketListenerImpl(ServerConnectionListener.this.server, connection));
                     io.papermc.paper.network.ChannelInitializeListenerHolder.callListeners(p_9729_); // Paper - Add Channel initialization listeners
+                    // FoliaYouer start - region threading - register connection
+                    io.papermc.paper.threadedregions.RegionizedServer.getInstance().addConnection(connection);
+                    // FoliaYouer end - region threading
                 }
             }).group(eventloopgroup).localAddress(address).option(ChannelOption.AUTO_READ, false).bind().syncUninterruptibly()); // CraftBukkit // Paper - Unix domain socket support
         }

@@ -237,9 +237,39 @@ public abstract class PlayerList {
         }
         // Folia end - region threading - rewrite login process
     }
+    // FoliaYouer start - keep original 3-arg signature for mod mixin compatibility
+    public void placeNewPlayer(Connection connection, ServerPlayer player, CommonListenerCookie clientData) {
+        LOGGER.info("[FoliaYouer-Debug] placeNewPlayer(3-arg) called on thread: " + Thread.currentThread().getName());
+        // balm mixin @Inject targets ClientboundPlayerAbilitiesPacket <init> inside this method
+        // keep the call here so mixin can find its injection point
+        new net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket(player.getAbilities());
+        // delegate to Folia's async region-threaded login
+        org.apache.commons.lang3.mutable.MutableObject<net.minecraft.nbt.CompoundTag> data = new org.apache.commons.lang3.mutable.MutableObject<>();
+        org.apache.commons.lang3.mutable.MutableObject<String> lastKnownName = new org.apache.commons.lang3.mutable.MutableObject<>();
+        ca.spottedleaf.concurrentutil.completable.Completable<org.bukkit.Location> toComplete = new ca.spottedleaf.concurrentutil.completable.Completable<>();
+        CommonListenerCookie cookie = clientData;
+        toComplete.addWaiter((org.bukkit.Location loc, Throwable t) -> {
+            int chunkX = net.minecraft.util.Mth.floor(loc.getX()) >> 4;
+            int chunkZ = net.minecraft.util.Mth.floor(loc.getZ()) >> 4;
+            net.minecraft.server.level.ServerLevel world = ((org.bukkit.craftbukkit.CraftWorld)loc.getWorld()).getHandle();
+            world.getChunkSource().addTicketAtLevel(
+                net.minecraft.server.level.TicketType.START,
+                new net.minecraft.world.level.ChunkPos(chunkX, chunkZ),
+                ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager.FULL_LOADED_TICKET_LEVEL,
+                net.minecraft.util.Unit.INSTANCE
+            );
+            io.papermc.paper.threadedregions.RegionizedServer.getInstance().taskQueue.queueTickTaskQueue(
+                world, chunkX, chunkZ,
+                () -> placeNewPlayerInternal(connection, player, cookie, java.util.Optional.ofNullable(data.getValue()), lastKnownName.getValue(), loc),
+                ca.spottedleaf.concurrentutil.executor.standard.PrioritisedExecutor.Priority.HIGHER
+            );
+        });
+        loadSpawnForNewPlayer(connection, player, clientData, data, lastKnownName, toComplete);
+    }
+    // FoliaYouer end
     // optional -> player data
     // s -> last known name
-    public void placeNewPlayer(Connection connection, ServerPlayer player, CommonListenerCookie clientData, Optional<CompoundTag> optional, String s, org.bukkit.Location selectedSpawn) { // Folia - region threading - rewrite login process
+    public void placeNewPlayerInternal(Connection connection, ServerPlayer player, CommonListenerCookie clientData, Optional<CompoundTag> optional, String s, org.bukkit.Location selectedSpawn) { // Folia - region threading - rewrite login process
         ServerLevel serverlevel1 = ((org.bukkit.craftbukkit.CraftWorld)selectedSpawn.getWorld()).getHandle();
         player.setPosRaw(selectedSpawn.getX(), selectedSpawn.getY(), selectedSpawn.getZ());
         player.lastSave = System.nanoTime(); // changed to nanoTime

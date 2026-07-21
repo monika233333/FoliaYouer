@@ -189,8 +189,11 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
 
         // Neo: Handle modded payloads. Vanilla payloads do not get sent to the modded handling pass. Additional payloads cannot be registered in the minecraft domain.
         if (net.neoforged.neoforge.network.registration.NetworkRegistry.isModdedPayload(p_294276_.payload())) {
+            LOGGER.info("[FoliaYouer-Debug] ServerCommon: isModdedPayload=true for {}, calling handleModdedPayload", p_294276_.payload().type().id());
             net.neoforged.neoforge.network.registration.NetworkRegistry.handleModdedPayload(this, p_294276_);
             return;
+        } else {
+            LOGGER.info("[FoliaYouer-Debug] ServerCommon: isModdedPayload=false for {}, class={}", p_294276_.payload().type().id(), p_294276_.payload().getClass().getSimpleName());
         }
     }
 

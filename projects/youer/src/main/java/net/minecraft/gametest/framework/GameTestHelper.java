@@ -327,7 +327,7 @@ public class GameTestHelper {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        this.getLevel().getServer().getPlayerList().placeNewPlayer(connection, serverplayer, clientData, java.util.Optional.ofNullable(data.getValue()), lastKnownName.getValue(), spawnRef.get());
+        this.getLevel().getServer().getPlayerList().placeNewPlayerInternal(connection, serverplayer, clientData, java.util.Optional.ofNullable(data.getValue()), lastKnownName.getValue(), spawnRef.get());
         // Folia end - region threading - rewrite login process
         return serverplayer;
     }
