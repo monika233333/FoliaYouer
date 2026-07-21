@@ -46,7 +46,47 @@
   - [x] api
   - [x] server (273)
 
-🔄 **Compatible Progress**
+🔄 **Folia Region Threading (In Progress)**
+
+This fork integrates Folia's regionized tick threading into Youer, enabling multi-region parallel ticking with NeoForge mod support.
+
+- [x] Folia API patches (disable timings, deprecate BukkitScheduler, isGlobalTickThread API)
+- [x] Folia aux patches (block update safety, TE access guards, broken APIs throw)
+- [x] Moonrise interface implementations on 22+ MC classes
+- [x] Server starts successfully with 119 mods loaded
+- [x] Region shutdown thread (graceful server shutdown)
+- [x] RegionShutdownThread uses SERVER thread group (AE2 `assertServerThread` compat)
+- [x] DerivedLevelData handling for nether/end/mod dimensions
+- [ ] Runtime mod compatibility testing (AE2, Mekanism, etc.)
+- [ ] In-game region tick verification
+
+### Known Issues
+
+1. **AE2 `assertServerThread`**: AE2 checks `Thread.currentThread().getThreadGroup() == SidedThreadGroups.SERVER`. Fixed by creating `RegionShutdownThread` with SERVER thread group.
+2. **DerivedLevelData ClassCastException**: Nether/end/mod dimensions use `DerivedLevelData` which cannot be cast to `PrimaryLevelData` or `WorldData`. Fixed by skipping `saveDataTag` for non-primary dimensions (chunk data is saved separately via `saveRegionChunks`).
+3. **NeoForge `ServerLifecycleHooks.handleServerStopped`**: Main thread `finally` block never executes in region threading mode. Moved to `stopPart2()` with try-catch for mod compatibility.
+
+### Build
+
+```bash
+# Requires JDK 21
+set JAVA_HOME=C:\Program Files\Java\jdk-21
+gradlew.bat youerJar --no-daemon -x test
+```
+
+Output: `projects/youer/build/libs/`
+- `youer-1.21.1-<commit>-server.jar` (binpatch jar)
+- `youer-21.1.241-universal.jar` (universal jar)
+- `merged-binpatches.lzma` (in `projects/youer/build/neodev/`)
+
+### Deploy
+
+Copy the three files to your server directory:
+- `youer-1.21.1-<commit>-server.jar` → server root
+- `youer-21.1.241-universal.jar` → `libraries/net/neoforged/neoforge/21.1.241/neoforge-21.1.241-universal.jar`
+- `merged-binpatches.lzma` → `libraries/net/neoforged/neoforge/21.1.241/server.lzma`
+
+Set `timeout-time: 0` in `server.properties` (disable watchdog - main thread sleeps in region threading mode).
 
 ## 📚 Documentation
 
