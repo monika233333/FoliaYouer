@@ -12,3 +12,5 @@ server_files/plugins/
 server_files/mods/
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+libraries/
+youer-config/

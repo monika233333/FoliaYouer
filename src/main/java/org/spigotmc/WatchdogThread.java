@@ -39,7 +39,11 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
     {
         if ( WatchdogThread.instance == null )
         {
-            if (timeoutTime <= 0) timeoutTime = 300; // Paper
+            if (timeoutTime <= 0) {
+                // FoliaYouer - disable watchdog entirely when timeout-time is 0
+                // (Folia regionized mode: main thread sleeps forever, watchdog would false-positive)
+                return;
+            }
             WatchdogThread.instance = new WatchdogThread( timeoutTime * 1000L, restart );
             WatchdogThread.instance.start();
         } else
@@ -51,6 +55,7 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
 
     public static void tick()
     {
+        if (WatchdogThread.instance == null) return; // FoliaYouer - watchdog disabled
         WatchdogThread.instance.lastTick = WatchdogThread.monotonicMillis();
     }
 

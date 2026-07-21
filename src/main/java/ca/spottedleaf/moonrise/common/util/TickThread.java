@@ -91,6 +91,13 @@ public class TickThread extends Thread {
         this.id = id;
     }
 
+    // FoliaYouer start - allow specifying ThreadGroup for RegionShutdownThread
+    public TickThread(final ThreadGroup group, final Runnable run, final String name) {
+        super(group, run, name);
+        this.id = ID_GENERATOR.incrementAndGet();
+    }
+    // FoliaYouer end
+
     public static TickThread getCurrentTickThread() {
         return (TickThread)Thread.currentThread();
     }

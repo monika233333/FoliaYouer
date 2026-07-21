@@ -18,7 +18,7 @@ public final class RegionShutdownThread extends ca.spottedleaf.moonrise.common.u
     ThreadedRegionizer.ThreadedRegion<TickRegions.TickRegionData, TickRegions.TickRegionSectionData> shuttingDown;
 
     public RegionShutdownThread(final String name) {
-        super(name);
+        super(net.neoforged.fml.util.thread.SidedThreadGroups.SERVER, null, name);
         this.setUncaughtExceptionHandler((thread, thr) -> {
             LOGGER.error("Error shutting down server", thr);
         });
