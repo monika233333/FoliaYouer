@@ -25,24 +25,36 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.structure.LegacyStructureDataHandler;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 
-public class ChunkStorage implements AutoCloseable {
+public class ChunkStorage implements AutoCloseable, ca.spottedleaf.moonrise.patches.chunk_system.storage.ChunkSystemChunkStorage { // Paper - rewrite chunk system
+
     public static final int LAST_MONOLYTH_STRUCTURE_DATA_VERSION = 1493;
-    private final IOWorker worker;
+    // Paper - rewrite chunk system
     protected final DataFixer fixerUpper;
     @Nullable
     private volatile LegacyStructureDataHandler legacyStructureHandler;
 
+    // Paper start - rewrite chunk system
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
+    private final RegionFileStorage storage;
+
+    @Override
+    public final RegionFileStorage moonrise$getRegionStorage() {
+        return this.storage;
+    }
+    // Paper end - rewrite chunk system
+
     public ChunkStorage(RegionStorageInfo p_326130_, Path p_196912_, DataFixer p_196913_, boolean p_196914_) {
         this.fixerUpper = p_196913_;
-        this.worker = new IOWorker(p_326130_, p_196912_, p_196914_);
+        this.storage = new IOWorker(p_326130_, p_196912_, p_196914_).storage; // Paper - rewrite chunk system
     }
 
     public boolean isOldChunkAround(ChunkPos p_223452_, int p_223453_) {
-        return this.worker.isOldChunkAround(p_223452_, p_223453_);
+        return true; // Paper - rewrite chunk system
     }
 
     // CraftBukkit start
     private boolean check(net.minecraft.server.level.ServerChunkCache cps, int x, int z) {
+        if (true) return true; // Paper - Perf: this isn't even needed anymore, light is purged updating to 1.14+, why are we holding up the conversion process reading chunk data off disk - return true, we need to set light populated to true so the converter recognizes the chunk as being "full"
         ChunkPos pos = new ChunkPos(x, z);
         if (cps != null) {
             com.google.common.base.Preconditions.checkState(org.bukkit.Bukkit.isPrimaryThread(), "primary thread");
@@ -77,27 +89,27 @@ public class ChunkStorage implements AutoCloseable {
 
     public CompoundTag upgradeChunkTagCB(ResourceKey<Level> p_188289_,
                                        Supplier<DimensionDataStorage> p_188290_,
-                                       CompoundTag p_188291_,
+                                       CompoundTag p_188281_,
                                        Optional<ResourceKey<MapCodec<? extends ChunkGenerator>>> p_188292_, ChunkPos pos, @Nullable LevelAccessor generatoraccess) {
         this.pos = pos;
         this.generatoraccess = generatoraccess;
-        return this.upgradeChunkTag(p_188289_, p_188290_, p_188291_, p_188292_);
+        return this.upgradeChunkTag(p_188289_, p_188290_, p_188281_, p_188292_);
     }
 
     public CompoundTag upgradeChunkTag(
         ResourceKey<Level> p_188289_,
         Supplier<DimensionDataStorage> p_188290_,
-        CompoundTag p_188291_,
+        CompoundTag p_188281_,
         Optional<ResourceKey<MapCodec<? extends ChunkGenerator>>> p_188292_
     ) {
-        int i = getVersion(p_188291_);
+        int i = getVersion(p_188281_);
         if (i == SharedConstants.getCurrentVersion().getDataVersion().getVersion()) {
-            return p_188291_;
+            return p_188281_;
         } else {
             try {
                 // CraftBukkit start
                 if (i < 1466 && pos != null) { // Paper - no longer needed, data converter system / DFU handles it now
-                    CompoundTag level = p_188291_.getCompound("Level");
+                    CompoundTag level = p_188281_.getCompound("Level");
                     if (level.getBoolean("TerrainPopulated") && !level.getBoolean("LightPopulated")) {
                         ServerChunkCache cps = (generatoraccess == null) ? null : ((ServerLevel) generatoraccess).getChunkSource();
                         if (this.check(cps, pos.x - 1, pos.z) && this.check(cps, pos.x - 1, pos.z - 1) && this.check(cps, pos.x, pos.z - 1)) {
@@ -109,10 +121,12 @@ public class ChunkStorage implements AutoCloseable {
 
 
                 if (i < 1493) {
-                    p_188291_ = DataFixTypes.CHUNK.update(this.fixerUpper, p_188291_, i, 1493);
-                    if (p_188291_.getCompound("Level").getBoolean("hasLegacyStructureData")) {
+                    p_188281_ = DataFixTypes.CHUNK.update(this.fixerUpper, p_188281_, i, 1493);
+                    if (p_188281_.getCompound("Level").getBoolean("hasLegacyStructureData")) {
                         LegacyStructureDataHandler legacystructuredatahandler = this.getLegacyStructureHandler(p_188289_, p_188290_);
-                        p_188291_ = legacystructuredatahandler.updateFromLegacy(p_188291_);
+                        synchronized (legacystructuredatahandler) { // Paper - rewrite chunk system
+                        p_188281_ = legacystructuredatahandler.updateFromLegacy(p_188281_);
+                        } // Paper - rewrite chunk system
                     }
                 }
 
@@ -121,20 +135,20 @@ public class ChunkStorage implements AutoCloseable {
                 boolean belowZeroGenerationInExistingChunks = (generatoraccess != null) ? ((ServerLevel)generatoraccess).spigotConfig.belowZeroGenerationInExistingChunks : org.spigotmc.SpigotConfig.belowZeroGenerationInExistingChunks;
                 generatoraccess = null;
                 if (i <= 2730 && !belowZeroGenerationInExistingChunks) {
-                    stopBelowZero = "full".equals(p_188291_.getCompound("Level").getString("Status"));
+                    stopBelowZero = "full".equals(p_188281_.getCompound("Level").getString("Status"));
                 }
                 // Spigot end
 
-                injectDatafixingContext(p_188291_, p_188289_, p_188292_);
-                p_188291_ = DataFixTypes.CHUNK.updateToCurrentVersion(this.fixerUpper, p_188291_, Math.max(1493, i));
+                injectDatafixingContext(p_188281_, p_188289_, p_188292_);
+                p_188281_ = DataFixTypes.CHUNK.updateToCurrentVersion(this.fixerUpper, p_188281_, Math.max(1493, i));
                 // Spigot start
                 if (stopBelowZero) {
-                    p_188291_.putString("Status", net.minecraft.core.registries.BuiltInRegistries.CHUNK_STATUS.getKey(net.minecraft.world.level.chunk.status.ChunkStatus.SPAWN).toString());
+                    p_188281_.putString("Status", net.minecraft.core.registries.BuiltInRegistries.CHUNK_STATUS.getKey(net.minecraft.world.level.chunk.status.ChunkStatus.SPAWN).toString());
                 }
                 // Spigot end
-                removeDatafixingContext(p_188291_);
-                NbtUtils.addCurrentDataVersion(p_188291_);
-                return p_188291_;
+                removeDatafixingContext(p_188281_);
+                NbtUtils.addCurrentDataVersion(p_188281_);
+                return p_188281_;
             } catch (Exception exception) {
                 CrashReport crashreport = CrashReport.forThrowable(exception, "Updated chunk");
                 CrashReportCategory crashreportcategory = crashreport.addCategory("Updated chunk details");
@@ -176,34 +190,71 @@ public class ChunkStorage implements AutoCloseable {
     }
 
     public CompletableFuture<Optional<CompoundTag>> read(ChunkPos p_223455_) {
-        return this.worker.loadAsync(p_223455_);
+        // Paper start - rewrite chunk system
+        try {
+            return CompletableFuture.completedFuture(Optional.ofNullable(this.storage.read(p_223455_)));
+        } catch (final Throwable throwable) {
+            return CompletableFuture.failedFuture(throwable);
+        }
+        // Paper end - rewrite chunk system
     }
 
     public CompletableFuture<Void> write(ChunkPos p_63503_, CompoundTag p_63504_) {
+        // Paper start - guard against serializing mismatching coordinates
+        if (p_63504_ != null && !p_63503_.equals(ChunkSerializer.getChunkCoordinate(p_63504_))) {
+            final String world = (this instanceof net.minecraft.server.level.ChunkMap) ? ((net.minecraft.server.level.ChunkMap) this).level.getWorld().getName() : null;
+            throw new IllegalArgumentException("Chunk coordinate and serialized data do not have matching coordinates, trying to serialize coordinate " + p_63503_
+                + " but compound says coordinate is " + ChunkSerializer.getChunkCoordinate(p_63504_) + (world == null ? " for an unknown world" : (" for world: " + world)));
+        }
+        // Paper end - guard against serializing mismatching coordinates
         this.handleLegacyStructureIndex(p_63503_);
-        return this.worker.store(p_63503_, p_63504_);
+        // Paper start - rewrite chunk system
+        try {
+            this.storage.write(p_63503_, p_63504_);
+            return CompletableFuture.completedFuture(null);
+        } catch (final Throwable throwable) {
+            return CompletableFuture.failedFuture(throwable);
+        }
+        // Paper end - rewrite chunk system
     }
 
     protected void handleLegacyStructureIndex(ChunkPos p_321604_) {
         if (this.legacyStructureHandler != null) {
+            synchronized (this.legacyStructureHandler) { // Paper - rewrite chunk system
             this.legacyStructureHandler.removeIndex(p_321604_.toLong());
+            } // Paper - rewrite chunk system
         }
     }
 
     public void flushWorker() {
-        this.worker.synchronize(true).join();
+        // Paper start - rewrite chunk system
+        try {
+            this.storage.flush();
+        } catch (final IOException ex) {
+            LOGGER.error("Failed to flush chunk storage", ex);
+        }
+        // Paper end - rewrite chunk system
     }
 
     @Override
     public void close() throws IOException {
-        this.worker.close();
+        this.storage.close(); // Paper - rewrite chunk system
     }
 
     public ChunkScanAccess chunkScanner() {
-        return this.worker;
+        // Paper start - rewrite chunk system
+        return (chunkPos, streamTagVisitor) -> {
+            try {
+                this.storage.scanChunk(chunkPos, streamTagVisitor);
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        // Paper end - rewrite chunk system
     }
 
     public RegionStorageInfo storageInfo() {
-        return this.worker.storageInfo();
+        return this.storage.info(); // Paper - rewrite chunk system
     }
 }
