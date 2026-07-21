@@ -1,0 +1,147 @@
+package net.minecraft.world;
+
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import org.bukkit.Location;
+import org.bukkit.craftbukkit.entity.CraftHumanEntity;
+import org.bukkit.entity.HumanEntity;
+
+public class CompoundContainer implements Container {
+    public final Container container1;
+    public final Container container2;
+
+    public CompoundContainer(Container p_18913_, Container p_18914_) {
+        this.container1 = p_18913_;
+        this.container2 = p_18914_;
+    }
+
+    @Override
+    public int getContainerSize() {
+        return this.container1.getContainerSize() + this.container2.getContainerSize();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return this.container1.isEmpty() && this.container2.isEmpty();
+    }
+
+    public boolean contains(Container p_18928_) {
+        return this.container1 == p_18928_ || this.container2 == p_18928_;
+    }
+
+    @Override
+    public ItemStack getItem(int p_18920_) {
+        return p_18920_ >= this.container1.getContainerSize()
+            ? this.container2.getItem(p_18920_ - this.container1.getContainerSize())
+            : this.container1.getItem(p_18920_);
+    }
+
+    @Override
+    public ItemStack removeItem(int p_18922_, int p_18923_) {
+        return p_18922_ >= this.container1.getContainerSize()
+            ? this.container2.removeItem(p_18922_ - this.container1.getContainerSize(), p_18923_)
+            : this.container1.removeItem(p_18922_, p_18923_);
+    }
+
+    @Override
+    public ItemStack removeItemNoUpdate(int p_18932_) {
+        return p_18932_ >= this.container1.getContainerSize()
+            ? this.container2.removeItemNoUpdate(p_18932_ - this.container1.getContainerSize())
+            : this.container1.removeItemNoUpdate(p_18932_);
+    }
+
+    @Override
+    public void setItem(int p_18925_, ItemStack p_18926_) {
+        if (p_18925_ >= this.container1.getContainerSize()) {
+            this.container2.setItem(p_18925_ - this.container1.getContainerSize(), p_18926_);
+        } else {
+            this.container1.setItem(p_18925_, p_18926_);
+        }
+    }
+
+    @Override
+    public int getMaxStackSize() {
+        return this.container1.getMaxStackSize();
+    }
+
+    @Override
+    public void setChanged() {
+        this.container1.setChanged();
+        this.container2.setChanged();
+    }
+
+    @Override
+    public boolean stillValid(Player p_18930_) {
+        return this.container1.stillValid(p_18930_) && this.container2.stillValid(p_18930_);
+    }
+
+    @Override
+    public void startOpen(Player p_18940_) {
+        this.container1.startOpen(p_18940_);
+        this.container2.startOpen(p_18940_);
+    }
+
+    @Override
+    public void stopOpen(Player p_18937_) {
+        this.container1.stopOpen(p_18937_);
+        this.container2.stopOpen(p_18937_);
+    }
+
+    @Override
+    public boolean canPlaceItem(int p_18934_, ItemStack p_18935_) {
+        return p_18934_ >= this.container1.getContainerSize()
+            ? this.container2.canPlaceItem(p_18934_ - this.container1.getContainerSize(), p_18935_)
+            : this.container1.canPlaceItem(p_18934_, p_18935_);
+    }
+
+    @Override
+    public void clearContent() {
+        this.container1.clearContent();
+        this.container2.clearContent();
+    }
+
+    // CraftBukkit start - add fields and methods
+    public List<HumanEntity> transaction = new java.util.ArrayList<HumanEntity>();
+
+    public List<ItemStack> getContents() {
+        List<ItemStack> result = new ArrayList<ItemStack>(this.getContainerSize());
+        for (int i = 0; i < this.getContainerSize(); i++) {
+            result.add(this.getItem(i));
+        }
+        return result;
+    }
+
+    public void onOpen(CraftHumanEntity who) {
+        this.container1.onOpen(who);
+        this.container2.onOpen(who);
+        transaction.add(who);
+    }
+
+    public void onClose(CraftHumanEntity who) {
+        this.container1.onClose(who);
+        this.container2.onClose(who);
+        transaction.remove(who);
+    }
+
+    public List<HumanEntity> getViewers() {
+        return transaction;
+    }
+
+    public org.bukkit.inventory.InventoryHolder getOwner() {
+        return null; // This method won't be called since CraftInventoryDoubleChest doesn't defer to here
+    }
+
+    @Override
+    public void setMaxStackSize(int size) {
+        this.container1.setMaxStackSize(size);
+        this.container2.setMaxStackSize(size);
+    }
+
+    @Override
+    public Location getLocation() {
+        return container1.getLocation(); // TODO: right?
+    }
+    // CraftBukkit end
+}

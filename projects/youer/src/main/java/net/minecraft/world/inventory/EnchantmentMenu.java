@@ -1,0 +1,401 @@
+package net.minecraft.world.inventory;
+
+import com.mojang.datafixers.util.Pair;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import net.minecraft.Util;
+import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.IdMap;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stats;
+import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.EnchantingTableBlock;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.craftbukkit.enchantments.CraftEnchantment;
+import org.bukkit.craftbukkit.inventory.CraftInventoryEnchanting;
+import org.bukkit.craftbukkit.inventory.CraftItemStack;
+import org.bukkit.craftbukkit.inventory.view.CraftEnchantmentView;
+import org.bukkit.enchantments.EnchantmentOffer;
+import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
+
+public class EnchantmentMenu extends AbstractContainerMenu {
+    static final ResourceLocation EMPTY_SLOT_LAPIS_LAZULI = ResourceLocation.withDefaultNamespace("item/empty_slot_lapis_lazuli");
+    private final Container enchantSlots = new SimpleContainer(2) {
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            EnchantmentMenu.this.slotsChanged(this);
+        }
+
+        // CraftBukkit start
+        @Override
+        public Location getLocation() {
+            return access.getLocation();
+        }
+        // CraftBukkit end
+    };
+    private final ContainerLevelAccess access;
+    private final RandomSource random = RandomSource.create();
+    private final DataSlot enchantmentSeed = DataSlot.standalone();
+    public final int[] costs = new int[3];
+    public final int[] enchantClue = new int[]{-1, -1, -1};
+    public final int[] levelClue = new int[]{-1, -1, -1};
+    // CraftBukkit start
+    private CraftEnchantmentView bukkitEntity = null;
+    private org.bukkit.entity.Player player;
+    // CraftBukkit end
+
+
+    public EnchantmentMenu(int p_39454_, Inventory p_39455_) {
+        this(p_39454_, p_39455_, ContainerLevelAccess.NULL);
+    }
+
+    public EnchantmentMenu(int p_39457_, Inventory p_39458_, ContainerLevelAccess p_39459_) {
+        super(MenuType.ENCHANTMENT, p_39457_);
+        this.access = p_39459_;
+        this.addSlot(new Slot(this.enchantSlots, 0, 15, 47) {
+            @Override
+            public int getMaxStackSize() {
+                return 1;
+            }
+        });
+        this.addSlot(new Slot(this.enchantSlots, 1, 35, 47) {
+            @Override
+            public boolean mayPlace(ItemStack p_39517_) {
+                return p_39517_.is(Items.LAPIS_LAZULI); // Neo: TODO - replace with the tag once we have client tags
+            }
+
+            @Override
+            public Pair<ResourceLocation, ResourceLocation> getNoItemIcon() {
+                return Pair.of(InventoryMenu.BLOCK_ATLAS, EnchantmentMenu.EMPTY_SLOT_LAPIS_LAZULI);
+            }
+        });
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 9; j++) {
+                this.addSlot(new Slot(p_39458_, j + i * 9 + 9, 8 + j * 18, 84 + i * 18));
+            }
+        }
+
+        for (int k = 0; k < 9; k++) {
+            this.addSlot(new Slot(p_39458_, k, 8 + k * 18, 142));
+        }
+
+        this.addDataSlot(DataSlot.shared(this.costs, 0));
+        this.addDataSlot(DataSlot.shared(this.costs, 1));
+        this.addDataSlot(DataSlot.shared(this.costs, 2));
+        this.addDataSlot(this.enchantmentSeed).set(p_39458_.player.getEnchantmentSeed());
+        this.addDataSlot(DataSlot.shared(this.enchantClue, 0));
+        this.addDataSlot(DataSlot.shared(this.enchantClue, 1));
+        this.addDataSlot(DataSlot.shared(this.enchantClue, 2));
+        this.addDataSlot(DataSlot.shared(this.levelClue, 0));
+        this.addDataSlot(DataSlot.shared(this.levelClue, 1));
+        this.addDataSlot(DataSlot.shared(this.levelClue, 2));
+        // CraftBukkit start
+        player = (org.bukkit.entity.Player) p_39458_.player.getBukkitEntity();
+        // CraftBukkit end
+    }
+
+    @Override
+    public void slotsChanged(Container p_39461_) {
+        if (p_39461_ == this.enchantSlots) {
+            ItemStack itemstack = p_39461_.getItem(0);
+            if (!itemstack.isEmpty() && itemstack.isEnchantable()) {
+                this.access.execute((p_344366_, p_344367_) -> {
+                    IdMap<Holder<Enchantment>> idmap = p_344366_.registryAccess().registryOrThrow(Registries.ENCHANTMENT).asHolderIdMap();
+                    float j = 0;
+
+                    for (BlockPos blockpos : EnchantingTableBlock.BOOKSHELF_OFFSETS) {
+                        if (EnchantingTableBlock.isValidBookShelf(p_344366_, p_344367_, blockpos)) {
+                            j += p_344366_.getBlockState(p_344367_.offset(blockpos)).getEnchantPowerBonus(p_344366_, p_344367_.offset(blockpos));
+                        }
+                    }
+
+                    this.random.setSeed((long)this.enchantmentSeed.get());
+
+                    for (int k = 0; k < 3; k++) {
+                        this.costs[k] = EnchantmentHelper.getEnchantmentCost(this.random, k, (int)j, itemstack);
+                        this.enchantClue[k] = -1;
+                        this.levelClue[k] = -1;
+                        if (this.costs[k] < k + 1) {
+                            this.costs[k] = 0;
+                        }
+                        this.costs[k] = net.neoforged.neoforge.event.EventHooks.onEnchantmentLevelSet(p_344366_, p_344367_, k, (int)j, itemstack, costs[k]);
+                    }
+
+                    for (int l = 0; l < 3; l++) {
+                        if (this.costs[l] > 0) {
+                            List<EnchantmentInstance> list = this.getEnchantmentList(p_344366_.registryAccess(), itemstack, l, this.costs[l]);
+                            if (list != null && !list.isEmpty()) {
+                                EnchantmentInstance enchantmentinstance = list.get(this.random.nextInt(list.size()));
+                                this.enchantClue[l] = idmap.getId(enchantmentinstance.enchantment);
+                                this.levelClue[l] = enchantmentinstance.level;
+                            }
+                        }
+                    }
+
+                    // CraftBukkit start
+                    CraftItemStack item = CraftItemStack.asCraftMirror(itemstack);
+                    org.bukkit.enchantments.EnchantmentOffer[] offers = new EnchantmentOffer[3];
+                    for (int i = 0; i < 3; ++i) {
+                        org.bukkit.enchantments.Enchantment enchantment = (this.enchantClue[i] >= 0) ? CraftEnchantment.minecraftHolderToBukkit(idmap.byId(this.enchantClue[i])) : null;
+                        offers[i] = (enchantment != null) ? new EnchantmentOffer(enchantment, this.levelClue[i], this.costs[i]) : null;
+                    }
+
+                    PrepareItemEnchantEvent event = new PrepareItemEnchantEvent(player, this.getBukkitView(), access.getLocation().getBlock(), item, offers, (int)j);
+                    event.setCancelled(!itemstack.isEnchantable());
+                    Bukkit.getPluginManager().callEvent(event);
+
+                    if (event.isCancelled()) {
+                        for (int i = 0; i < 3; ++i) {
+                            this.costs[i] = 0;
+                            this.enchantClue[i] = -1;
+                            this.levelClue[i] = -1;
+                        }
+                        return;
+                    }
+
+                    for (int i = 0; i < 3; i++) {
+                        EnchantmentOffer offer = event.getOffers()[i];
+                        if (offer != null) {
+                            this.costs[i] = offer.getCost();
+                            this.enchantClue[i] = idmap.getId(CraftEnchantment.bukkitToMinecraftHolder(offer.getEnchantment()));
+                            this.levelClue[i] = offer.getEnchantmentLevel();
+                        } else {
+                            this.costs[i] = 0;
+                            this.enchantClue[i] = -1;
+                            this.levelClue[i] = -1;
+                        }
+                    }
+                    // CraftBukkit end
+
+                    this.broadcastChanges();
+                });
+            } else {
+                for (int i = 0; i < 3; i++) {
+                    this.costs[i] = 0;
+                    this.enchantClue[i] = -1;
+                    this.levelClue[i] = -1;
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean clickMenuButton(Player p_39465_, int p_39466_) {
+        if (p_39466_ >= 0 && p_39466_ < this.costs.length) {
+            ItemStack itemstack = this.enchantSlots.getItem(0);
+            ItemStack itemstack1 = this.enchantSlots.getItem(1);
+            int i = p_39466_ + 1;
+            if ((itemstack1.isEmpty() || itemstack1.getCount() < i) && !p_39465_.hasInfiniteMaterials()) {
+                return false;
+            } else if (this.costs[p_39466_] <= 0
+                || itemstack.isEmpty()
+                || (p_39465_.experienceLevel < i || p_39465_.experienceLevel < this.costs[p_39466_]) && !p_39465_.getAbilities().instabuild) {
+                return false;
+            } else {
+                this.access
+                    .execute(
+                        (p_347276_, p_347277_) -> {
+                            ItemStack itemstack2 = itemstack; // Paper - diff on change
+                            List<EnchantmentInstance> list = this.getEnchantmentList(p_347276_.registryAccess(), itemstack, p_39466_, this.costs[p_39466_]);
+                            IdMap<Holder<Enchantment>> registry = p_347276_.registryAccess().registryOrThrow(Registries.ENCHANTMENT).asHolderIdMap();
+                            if (true || !list.isEmpty()) {
+                                // entityhuman.onEnchantmentPerformed(itemstack, j); // Moved down
+                                Map<org.bukkit.enchantments.Enchantment, Integer> enchants = new java.util.HashMap<org.bukkit.enchantments.Enchantment, Integer>();
+                                for (EnchantmentInstance instance : list) {
+                                    enchants.put(CraftEnchantment.minecraftHolderToBukkit(instance.enchantment), instance.level);
+                                }
+                                CraftItemStack item = CraftItemStack.asCraftMirror(itemstack2);
+
+                                int id = this.enchantClue[p_39466_];
+                                org.bukkit.enchantments.Enchantment hintedEnchantment = (id >= 0) ? CraftEnchantment.minecraftHolderToBukkit(registry.byId(id)) : null;
+                                int hintedEnchantmentLevel = this.levelClue[p_39466_];
+                                EnchantItemEvent event = new EnchantItemEvent((org.bukkit.entity.Player) p_39465_.getBukkitEntity(), this.getBukkitView(), this.access.getLocation().getBlock(), item, this.costs[p_39466_], enchants, hintedEnchantment, hintedEnchantmentLevel, p_39466_);
+                                p_347276_.getCraftServer().getPluginManager().callEvent(event);
+
+                                int level = event.getExpLevelCost();
+                                if (event.isCancelled() || (level > p_39465_.experienceLevel && !p_39465_.getAbilities().instabuild) || event.getEnchantsToAdd().isEmpty()) {
+                                    return;
+                                }
+                                // CraftBukkit end
+                                // Paper start
+                                itemstack2 = org.bukkit.craftbukkit.inventory.CraftItemStack.getOrCloneOnMutation(item, event.getItem());
+                                if (itemstack2 != itemstack) {
+                                    this.enchantSlots.setItem(0, itemstack2);
+                                }
+                                if (itemstack2.is(Items.BOOK)) {
+                                    itemstack2 = itemstack2.transmuteCopy(Items.ENCHANTED_BOOK);
+                                    this.enchantSlots.setItem(0, itemstack2);
+                                }
+                                // Paper end
+
+                                // CraftBukkit start
+                                var newList = new ArrayList<EnchantmentInstance>();
+                                for (Map.Entry<org.bukkit.enchantments.Enchantment, Integer> entry : event.getEnchantsToAdd().entrySet()) {
+                                    Holder<Enchantment> nms = CraftEnchantment.bukkitToMinecraftHolder(entry.getKey());
+                                    if (nms == null) {
+                                        continue;
+                                    }
+
+                                    EnchantmentInstance weightedrandomenchant = new EnchantmentInstance(nms, entry.getValue());
+                                    newList.add(weightedrandomenchant);
+                                }
+                                list = newList;
+                                p_39465_.onEnchantmentPerformed(itemstack, i);
+                                // CraftBukkit end
+                                // Neo: Allow items to transform themselves when enchanted, instead of relying on hardcoded transformations for Items.BOOK
+                                itemstack2 = itemstack.getItem().applyEnchantments(itemstack, list);
+                                this.enchantSlots.setItem(0, itemstack2);
+                                net.neoforged.neoforge.common.CommonHooks.onPlayerEnchantItem(p_39465_, itemstack2, list);
+
+                                itemstack1.consume(i, p_39465_);
+                                if (itemstack1.isEmpty()) {
+                                    this.enchantSlots.setItem(1, ItemStack.EMPTY);
+                                }
+
+                                p_39465_.awardStat(Stats.ENCHANT_ITEM);
+                                if (p_39465_ instanceof ServerPlayer) {
+                                    CriteriaTriggers.ENCHANTED_ITEM.trigger((ServerPlayer)p_39465_, itemstack2, i);
+                                }
+
+                                this.enchantSlots.setChanged();
+                                this.enchantmentSeed.set(p_39465_.getEnchantmentSeed());
+                                this.slotsChanged(this.enchantSlots);
+                                p_347276_.playSound(
+                                    null, p_347277_, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 1.0F, p_347276_.random.nextFloat() * 0.1F + 0.9F
+                                );
+                            }
+                        }
+                    );
+                return true;
+            }
+        } else {
+            Util.logAndPauseIfInIde(p_39465_.getName() + " pressed invalid button id: " + p_39466_);
+            return false;
+        }
+    }
+
+    private List<EnchantmentInstance> getEnchantmentList(RegistryAccess p_345264_, ItemStack p_39472_, int p_39473_, int p_39474_) {
+        this.random.setSeed((long)(this.enchantmentSeed.get() + p_39473_));
+        Optional<HolderSet.Named<Enchantment>> optional = p_345264_.registryOrThrow(Registries.ENCHANTMENT).getTag(EnchantmentTags.IN_ENCHANTING_TABLE);
+        if (optional.isEmpty()) {
+            return List.of();
+        } else {
+            List<EnchantmentInstance> list = EnchantmentHelper.selectEnchantment(this.random, p_39472_, p_39474_, optional.get().stream());
+            if (p_39472_.is(Items.BOOK) && list.size() > 1) {
+                list.remove(this.random.nextInt(list.size()));
+            }
+
+            return list;
+        }
+    }
+
+    public int getGoldCount() {
+        ItemStack itemstack = this.enchantSlots.getItem(1);
+        return itemstack.isEmpty() ? 0 : itemstack.getCount();
+    }
+
+    public int getEnchantmentSeed() {
+        return this.enchantmentSeed.get();
+    }
+
+    @Override
+    public void removed(Player p_39488_) {
+        super.removed(p_39488_);
+        this.access.execute((p_39469_, p_39470_) -> this.clearContainer(p_39488_, this.enchantSlots));
+    }
+
+    @Override
+    public boolean stillValid(Player p_39463_) {
+        if (!this.checkReachable) return true; // CraftBukkit
+        return stillValid(this.access, p_39463_, Blocks.ENCHANTING_TABLE);
+    }
+
+    @Override
+    public ItemStack quickMoveStack(Player p_39490_, int p_39491_) {
+        ItemStack itemstack = ItemStack.EMPTY;
+        Slot slot = this.slots.get(p_39491_);
+        if (slot != null && slot.hasItem()) {
+            ItemStack itemstack1 = slot.getItem();
+            itemstack = itemstack1.copy();
+            if (p_39491_ == 0) {
+                if (!this.moveItemStackTo(itemstack1, 2, 38, true)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (p_39491_ == 1) {
+                if (!this.moveItemStackTo(itemstack1, 2, 38, true)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (itemstack1.is(Items.LAPIS_LAZULI)) { // Neo: TODO - replace with the tag once we have client tags
+                if (!this.moveItemStackTo(itemstack1, 1, 2, true)) {
+                    return ItemStack.EMPTY;
+                }
+            } else {
+                if (this.slots.get(0).hasItem() || !this.slots.get(0).mayPlace(itemstack1)) {
+                    return ItemStack.EMPTY;
+                }
+
+                ItemStack itemstack2 = itemstack1.copyWithCount(1);
+                itemstack1.shrink(1);
+                this.slots.get(0).setByPlayer(itemstack2);
+            }
+
+            if (itemstack1.isEmpty()) {
+                slot.setByPlayer(ItemStack.EMPTY);
+            } else {
+                slot.setChanged();
+            }
+
+            if (itemstack1.getCount() == itemstack.getCount()) {
+                return ItemStack.EMPTY;
+            }
+
+            slot.onTake(p_39490_, itemstack1);
+        }
+
+        return itemstack;
+    }
+
+    // CraftBukkit start
+    @Override
+    public CraftEnchantmentView getBukkitView() {
+        if (bukkitEntity != null) {
+            return bukkitEntity;
+        }
+
+        CraftInventoryEnchanting inventory = new CraftInventoryEnchanting(this.enchantSlots);
+        bukkitEntity = new CraftEnchantmentView(this.player, inventory, this);
+        return bukkitEntity;
+    }
+    // CraftBukkit end
+
+    // Paper start - add enchantment seed update API
+    public void setEnchantmentSeed(int seed) {
+        this.enchantmentSeed.set(seed);
+    }
+    // Paper end - add enchantment seed update API
+}
